@@ -1,243 +1,243 @@
-=============================
-パート3: 目を向けてみましょう
-=============================
+============================= 
+파트 3 : 눈을 돌려 보자 
+============================= 
 
-何もしない、Twisted なやり方
-----------------------------
-それでは、Twisted を使って非同期に詩を取得するクライアントを再実装していきましょう。とその前に、雰囲気をつかむために本当に単純な Twisted のプログラムを書いてみましょう。パート２で述べたように、紹介するコード例は Twisted 8.2.0 を使って開発しました。Twisted の API は変わっていくものですが、使おうとしている中心的な API はなかなか変わらないでしょう。例え変わったとしても、ここで紹介するコード例は将来のリリースでも動くと思います。Twisted をインストールしていなければ、 `ここ <http://twistedmatrix.com/trac/wiki/Downloads>`_ から入手してください。
+아무것도하지 않는 Twisted있는 방법 
+---------------------------- 
+그럼 Twisted를 사용하여 비동기 적으로시를 얻는 클라이언트를 다시 구현하고 갑시다. 와 그 전에 분위기를 잡기 위해 정말 간단한 Twisted 프로그램을 작성하자. 2 부에서 언급했듯이, 소개하는 예제는 Twisted 8.2.0을 사용하여 개발했습니다. Twisted의 API는 변해가는 것입니다 만, 사용하고자하는 핵심 API는 좀처럼 변하지 않을 것입니다. 예 바뀌었다해도, 여기서 소개하는 예제는 릴리스에서도 움직이는 생각합니다. Twisted을 설치해야`여기 <http://twistedmatrix.com/trac/wiki/Downloads>`_에서 제공합니다. 
 
-もっとも単純な Twisted のプログラムを以下に示します。 ``twisted-intro`` の一番上のディレクトリから見て `basic-twisted/simple.py <http://github.com/jdavisp3/twisted-intro/blob/master/basic-twisted/simple.py>`_ にあります。
-::
+가장 간단한 Twisted 프로그램은 다음과 같습니다. ``twisted-intro``의 최상위 디렉토리에서보고`basic-twisted / simple.py <http://github.com/jdavisp3/twisted-intro/blob/master/basic-twisted/simple.py >`_이 있습니다. 
+: 
 
-    from twisted.internet import reactor
-    reactor.run()
+     from twisted.internet import reactor 
+     reactor.run () 
 
-次のようにして実行できます。
-::
+다음과 같이하여 실행할 수 있습니다. 
+: 
 
-    python basic-twisted/simple.py
+     python basic-twisted / simple.py 
 
-":doc:`p02`"でみたように、Twisted は `Reactor Pattern <http://en.wikipedia.org/wiki/Reactor_pattern>`_ の実装であり、reactor もしくはイベントループを表すオブジェクトを持ちます。これはすべての Twisted プログラムで核となるものです、一番最初の行で ``reactor`` オブジェクトを使えるようにし、二行目で reactor にループを開始するように伝えます。
+": doc :`p02`"에서 본 바와 같이, Twisted는`Reactor Pattern <http://en.wikipedia.org/wiki/Reactor_pattern>`_의 구현이며, reactor 또는 이벤트 루프를 나타내는 객체를가집니다 . 이것은 모든 Twisted 프로그램에서 핵심 것입니다 가장 첫 번째 줄에``reactor`` 개체를 사용할 수 있도록 두 번째 줄 reactor 루프를 시작하도록 지시합니다. 
 
-このプログラムは何もしないで居座っているだけです。 ``Control-C`` を押すと止められますが、そうしなければ延々と実行を続けるでしょう。普通は入出力を監視したいひとつ以上のファイルディスクリプタ (詩のサーバにつないであると考えてください) をループに与えます。その方法は後で見ていくとして、ここでは reactor ループをそのままでにしておきます。繰り返しを続ける `busy loop <http://en.wikipedia.org/wiki/Busy_waiting>`_ ではないことに注意してください。CPU の動作状況を表示できるようなら、技術的には無限ループによって発生するスパイク現象が起きていないことが分かるでしょう。実際、ここで示したプログラムはまったく CPU を使っていません。その代わりに、reactor は":ref:`figure5`"における上部分のサイクルに留まっています。決して発生することのないイベントを待ちながら、です。(厳密に言えば、存在しないファイルディスクリプタに対する ``select`` 呼び出しを待っています)
+이 프로그램은 아무것도하지 눌러 앉아있을뿐입니다. ``Control-C``을 누르면 멈출 수 있지만, 그렇지 않으면 끝없이 계속 실행 것입니다. 보통 입출력을 모니터링 할 하나 이상의 파일 디스크립터 (시 서버에 연결있는 생각하십시오)를 루프에 제공합니다. 그 방법은 나중에 살펴로서 여기에서는 reactor 루프를 그대로 데스 둡니다. 반복을 계속`busy loop <http://en.wikipedia.org/wiki/Busy_waiting>`_하지 않는다는 점에 유의하십시오. CPU의 동작 상황을 표시 할 수 있다면 기술적으로 무한 루프에 의해 발생하는 스파이크 현상이 일어나고 있지 않다는 것을 알게 될 것입니다. 실제로 여기에 제시된 프로그램은 완전히 CPU를 사용하지 않습니다. 대신, reactor는 ": ref :`figure5`"의 윗부분주기에 머물고 있습니다. 결코 발생하지 않는 이벤트를 기다리면서입니다. (엄밀히 말하면 존재하지 않는 파일 디스크립터에 대한``select`` 호출을 기다리고 있습니다) 
 
-Hamletian inaction のメタファーを想起させるかもしれませんが、未だにどうしようもなくかわいらしいプログラムです。もっとおもしろいものにしていきたいところですが、すでにいくつか分かったことがあります。
+Hamletian inaction 은유를 상기시킬지도 모르지만, 아직도 어쩔 수없이 사랑스러운 프로그램입니다. 더 재미있게 해 나가고 싶지만 이미 일부 나타났다 수 있습니다. 
 
-#. Twisted の reactor ループは指示が与えられるまで開始しません。 ``reactor.run()`` を呼び出すことで開始させます。
-#. reactor ループは開始されたのと同じスレッドで実行されます。ここでの場合、main スレッド (しかもここだけ) で実行されます。
-#. いったんループが開始すると、そのまま動き続けます。reactor はプログラム (もしくは開始された特定のスレッド) の「支配下」にあります。
-#. 何もすることがなければ、reactor ループは CPU を消費しません。
-#. reactor は明示的に作られません。import するだけです。
+#. Twisted의 reactor 루프는 지시가 주어질 때까지 시작하지 않습니다. ``reactor.run ()`를 호출하는 것으로 시작합니다. 
+#. reactor 루프는 시작 된 것과 동일한 스레드에서 실행됩니다. 여기에서의 경우 main 스레드 (게다가 여기 만)에서 실행됩니다. 
+#. 일단 루프가 시작하면 그대로 동작합니다. reactor 프로그램 (또는 시작 된 특정 스레드)의 "지배"에 있습니다. 
+# 아무것도 할 수 없으면 reactor 루프는 CPU를 소비하지 않습니다. 
+#. reactor 명시 적으로 만들어지지 않습니다. import하면됩니다. 
 
-最後の点は詳しく説明する価値があります。Twisted では、reactor は基本的に `シングルトン <http://en.wikipedia.org/wiki/Singleton_pattern>`_ です。唯一の reactor オブジェクトしかなく、import したときに暗黙的に作成されます。 ``twisted.internet`` パッケージの ``reactor`` モジュールを見てみると、とても小さなコードを確認できるでしょう。実際の実装は他のファイル (`twisted.internet.selectreactor <http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/selectreactor.py>`_) にあります。
+마지막 점은 설명 할 가치가 있습니다. Twisted에서는 reactor는 기본적으로`싱글 톤 <http://en.wikipedia.org/wiki/Singleton_pattern>`_입니다. 유일한 reactor 개체 밖에없고, import 할 때 내재적으로 작성됩니다. ``twisted.internet`` 패키지``reactor`` 모듈을 보면 매우 작은 코드를 확인할 수있는 것입니다. 실제 구현은 다른 파일 (`twisted.internet.selectreactor <http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/selectreactor.py>`_)로 있습니다 . 
 
-実は、Twisted には複数の reactor の実装があります。パート２で紹介したように、 ``select`` の呼び出しはファイルディスクリプタを待ち受けるひとつの方法に過ぎません。Twisted が使うデフォルトの実装ではありますが、他の方法を使う reactor を有効にすることもできます。例えば `twisted.internet.pollreactor <http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/pollreactor.py>`_ は ``select`` ではなく ``poll`` システムコールを使います。
+사실 Twisted에는 여러 reactor 구현합니다. 2 부에서 소개 한 것처럼``select``의 호출은 파일 디스크립터를 기다리는 하나의 방법에 지나지 않습니다. Twisted가 사용하는 기본 구현은 있지만 다른 방법을 사용 reactor를 활성화 할 수 있습니다. 예를 들어`twisted.internet.pollreactor <http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/pollreactor.py>`_는`select`` 대신` poll`` 시스템 호출을 사용합니다. 
 
-異なる reactor の実装を使うためには、 ``twisted.internet.reactor`` を有効にする前に ``install`` しておきます。 ``pollreactor`` をインストールするには次のようにします。
-::
+다른 reactor 구현을 사용하기 위해서는``twisted.internet.reactor``을 사용하기 전에``install`` 둡니다. ``pollreactor``를 설치하려면 다음과 같이합니다. 
+: 
 
-    from twisted.internet import pollreactor
-    pollreactor.install()
+     from twisted.internet import pollreactor 
+     pollreactor.install () 
 
 
-特定の reactor の実装を最初にインストールしないで ``twisted.internet.reactor`` を import すると、Twisted は ``selectreactor`` をインストールするでしょう。このため、誤ってデフォルトの reactor をインストールしてしまうことを避けるため、モジュールの最上位で reactor をインポートしないのが一般的なやり方です。そうではなく、使うのと同じスコープで reactor を import します。
+특정 reactor 구현을 먼저 설치하지``twisted.internet.reactor``을 import하면 Twisted는`selectreactor``를 설치하는 것입니다. 따라서 실수로 기본 reactor를 설치하여 버리는 것을 방지하기 위해 모듈의 최상위에 reactor를 가져 오지 것이 일반적인 방법입니다. 그렇지 않고, 사용하는 것과 동일한 범위에서 reactor를 import합니다. 
 
-    執筆時点では、Twisted は複数の reactor が共存することを許すようなアーキテクチャに徐々に移行しています。
-    この考え方においては、reactor オブジェクトはモジュールから import されるのではなく、参照で渡されるようになるでしょう。
+     집필 시점에서는 Twisted 여러 reactor가 공존하는 것을 허락 같은 아키텍처로 점진적하고 있습니다. 
+     이 사고에서는 reactor 개체 모듈에서 import되는 것이 아니라 참조로 전달되게 될 것입니다. 
 
-それでは ``pollreactor`` を使って最初の Twisted プログラムを再実装できますね。 `basic-twisted/simple-poll.py <http://github.com/jdavisp3/twisted-intro/blob/master/basic-twisted/simple-poll.py>`_ を見てください。
-::
+그러면``pollreactor``를 사용하여 첫 번째 Twisted 프로그램을 다시 구현할 수 있군요. `basic-twisted / simple-poll.py <http://github.com/jdavisp3/twisted-intro/blob/master/basic-twisted/simple-poll.py>`_를보세요. 
+: 
 
-    from twisted.internet import pollreactor
-    pollreactor.install()
+     from twisted.internet import pollreactor 
+     pollreactor.install () 
 
-    from twisted.internet import reactor
-    reactor.run()
+     from twisted.internet import reactor 
+     reactor.run () 
 
-何もしない ``select`` ループの代わりに何もしない ``poll`` ループを使うようになった、ということです。かっこいい！
+아무것도하지 않는``select`` 루프 대신 아무것도하지``poll`` 루프를 사용하게되었다는 것입니다. 멋있다! 
 
-この入門の以降の部分ではデフォルトの reactor を使うことにします。Twisted を学ぶという目的においては、どの reactor でも同じことです。
+이 입문의 나머지 부분에서는 기본 reactor를 사용합니다. Twisted를 배우는 목적으로는 어떤 reactor도 같은 것입니다. 
 
-こんにちは Twisted
-------------------
-とりあえず何かする Twisted プログラムを作ってみましょう。端末にメッセージを表示するものは次のようになります。もちろん reactor ループが開始された後に、です。
-::
+안녕하세요 Twisted 
+------------------ 
+일단 뭔가 Twisted 프로그램을 만들어 봅시다. 단말기에 메시지를 표시하는 것은 다음과 같습니다. 물론 reactor 루프가 시작 된 후입니다. 
+: 
 
-    def hello():
-        print 'Hello from the reactor loop!'
-        print 'Lately I feel like I\'m stuck in a rut.'
+     def hello () : 
+         print 'Hello from the reactor loop!' 
+         print 'Lately I feel like I \'m stuck in a rut ' 
 
-    from twisted.internet import reactor
+     from twisted.internet import reactor 
 
-    reactor.callWhenRunning(hello)
+     reactor.callWhenRunning (hello) 
 
-    print 'Starting the reactor.'
-    reactor.run()
+     print 'Starting the reactor.' 
+     reactor.run () 
 
-このプログラムは `basic-twisted/hello.py <http://github.com/jdavisp3/twisted-intro/blob/master/basic-twisted/hello.py>`_ に置いてあります。実行してみると次の出力を得られるでしょう。
-::
+이 프로그램은`basic-twisted / hello.py <http://github.com/jdavisp3/twisted-intro/blob/master/basic-twisted/hello.py>`_에두고 있습니다. 실행 해 보면 다음과 같은 출력을 얻을 수 있습니다. 
+: 
 
-    Starting the reactor.
-    Hello from the reactor loop!
-    Lately I feel like I'm stuck in a rut.
+     Starting the reactor. 
+     Hello from the reactor loop! 
+     Lately I feel like I 'm stuck in a rut. 
 
-プログラムは、画面に出力したあとも動作を続けますので、手動で停止させなくてはなりません。
+프로그램은 화면에 출력 한 후에도 계속 작동하므로 수동으로 중지시키지 않으면 안됩니다. 
 
-``hello`` 関数は reactor が動き始めた後に呼ばれることに注意してください。Twisted のコードが私たちのコードを呼び出さなくてはいけませんので、reactor そのものに呼び出されるということです。Twisted に呼び出して欲しい関数への参照を reactor メソッド ``callWhenRunning`` に渡すことで、動作を変更できます。もちろん、reactor を動かす前にやらなくてはいけません。
+``hello`` 함수는 reactor가 움직이기 시작한 후라는 점에 유의하십시오. Twisted 코드가 우리의 코드를 호출하지 않으면 안되기 때문에, reactor 자체 호출되는 것입니다. Twisted 호출 해 주었으면 함수에 대한 참조를 reactor 메소드``callWhenRunning``에 전달하여 동작을 변경할 수 있습니다. 물론 reactor를 이동하기 전에 당해 않으면 안됩니다. 
 
-``hello`` 関数への参照にはコールバック (*callback*) という用語を使います。コールバックは Twisted が適当なときに後で呼び出す ("call us back") ように Twisted (もしくは他のフレームワークでも) に与える関数への参照です。この場合は reactor ループが開始した直後です。Twisted のループは私たちが記述するコードとは分離されていますので、reactor の中心となる部分とビジネスロジックの部分のやり取りのほとんどは、様々な API を使って Twisted に与えたコールバック関数から始まります。
+``hello`` 함수에 대한 참조는 콜백 (* callback *)라는 용어를 사용합니다. 콜백은 Twisted가 적당한 때 나중에 호출 ( "call us back")처럼 Twisted (또는 다른 프레임 워크도)에 미치는 함수에 대한 참조입니다. 이 경우 reactor 루프가 시작된 직후입니다. Twisted 루프는 우리가 작성한 코드는 분리되어 있기 때문에, reactor의 중심이되는 부분과 비즈니스 로직 부분의 상호 작용의 대부분은 다양한 API를 사용하여 Twisted 준 콜백 함수에서 시작 있습니다. 
 
-次のプログラムで、Twisted が私たちが記述するコードを呼び出す様子を確認できます。
-::
+다음 프로그램에서 Twisted 우리가 작성한 코드를 호출 모습을 확인할 수 있습니다. 
+: 
 
-    import traceback
+     import traceback 
 
-    def stack():
-        print 'The python stack:'
-        traceback.print_stack()
+     def stack () : 
+         print 'The python stack :' 
+         traceback.print_stack () 
 
-    from twisted.internet import reactor
-    reactor.callWhenRunning(stack)
-    reactor.run()
+     from twisted.internet import reactor 
+     reactor.callWhenRunning (stack) 
+     reactor.run () 
 
-このコードは `basic-twisted/stack.py <http://github.com/jdavisp3/twisted-intro/blob/master/basic-twisted/stack.py>`_ にあり、次のような出力を表示します。
-::
+이 코드는`basic-twisted / stack.py <http://github.com/jdavisp3/twisted-intro/blob/master/basic-twisted/stack.py>`_에 다음과 같은 출력을 표시 합니다. 
+: 
 
-    The python stack:
-    ...
-      reactor.run() <-- This is where we called the reactor
-    ...
-    ...  <-- A bunch of Twisted function calls
-    ...
-      traceback.print_stack() <-- The second line in the stack function
+     The python stack : 
+     ... 
+       reactor.run () <- This is where we called the reactor 
+     ... 
+     <- A bunch of Twisted function calls 
+     ... 
+       traceback.print_stack () <- The second line in the stack function 
 
-途中の全ての Twisted の呼び出しを気にすることはありません。 ``reactor.run()`` と私たちが渡したコールバックの関係にだけ気をつけてください。
+도중의 모든 Twisted 호출을 생각하지 않습니다. ``reactor.run ()``우리가 전달 콜백의 관계에만 조심하십시오. 
 
-    *コールバックとはどのように向き合うべきでしょうか？*
-    Twisted だけがコールバックを使う reactor フレームワークというわけではありません。
-    もっとも古い Python の非同期フレームワークである `Medusa <http://www.nightmare.com/medusa/>`_ と `asyncore <http://docs.python.org/library/asyncore.html#module-asyncore>`_ もコールバックを使います。 
-    たくさんの GUI フレームワークのように、GUI ツールキットである `GTK <http://gtk.org/>`_ と `QT <http://qt.nokia.com/>`_ も reactor ループ上で動きます。
+     * 콜백과 어떻게 마주해야할까요? * 
+     Twisted 만 콜백을 사용 reactor 프레임 워크라는 것은 없습니다. 
+     가장 오래된 Python 비동기 프레임 워크 인`Medusa <http://www.nightmare.com/medusa/>`_와`asyncore <http://docs.python.org/library/asyncore.html#module-asyncore >`_는 콜백을 사용합니다. 
+     많은 GUI 프레임 워크와 같이 GUI 툴킷 인`GTK <http://gtk.org/>`_와`QT <http://qt.nokia.com/>`_는 reactor 루프에서 움직입니다. 
 
-reactive system の開発者は間違いなくコールバックが好きです。たぶん結婚すべきでしょうし、すでにそうしているかもしれませんね。しかし、次のことを頭に入れておいてください。
+reactive system의 개발자는 확실히 콜백을 좋아합니다. 아마 결혼 할 것이고, 이미 이렇게하고 있을지도 모르겠네요. 그러나 다음 사항을 염두에 두십시오. 
 
-#. reactor パターンはシングルスレッドです。
-#. Twisted のような reactive フレームワークは、私たちが独自に実装しなくてもよいように reactor ループを実装しています。
-#. 私たちのコードはビジネスロジックを実装して呼ばれるようにします。
-#. シングルスレッドの制御下にありますので、reactor ループは私たちのコードを呼び出さなくてはいけなくなるでしょう。
-#. reactor には、私たちのコードのどの部分が呼び出されるべきかを前もって知る術はありません。
+#. reactor 패턴은 단일 스레드입니다. 
+#. Twisted 같은 reactive 프레임 워크는 우리가 독자적으로 구현 않아도 같이 reactor 루프를 구현하고 있습니다. 
+# 우리의 코드는 비즈니스 로직을 구현하고 불리게합니다. 
+# 싱글 스레드의 제어하에 있으므로 reactor 루프는 우리의 코드를 호출하지 말아야 될 것입니다. 
+#. reactor는 우리의 코드의 어느 부분이 호출되어야 할 것인가를 미리 알 수있는 방법은 없습니다. 
 
-このような状況ではコールバックは単なるオプションではありません。実際にできることといったらこれだけです。
+이러한 상황에서는 콜백은 단순한 옵션이 없습니다. 실제로 수라고하면 이것뿐입니다. 
 
-図６はコールバックの最中に何が起こっているかを表しています。
+그림 6은 콜백 중에 무엇이 일어나고 있는지를 나타냅니다. 
 
-.. _figure6:
+.. _figure6 : 
 
-.. figure:: images/p03_reactor-callback.png
+.. figure :: images / p03_reactor-callback.png 
 
-    図６：reactor がコールバックを扱う様子
+     그림 6 : reactor가 콜백을 처리 모습 
 
 
-図６はコールバックのいくつかの重要な性質を描き出しています。
+그림 6은 콜백의 몇 가지 중요한 성질을 그려 내고 있습니다. 
 
-#. 私たちのコールバックのコードは Twisted のループと同じスレッドで動きます。
-#. コールバックが動いているとき、Twisted のループは動いていません。
-#. 逆もまた然りです。
-#. コールバックが処理を戻すと reactor ループは再開します。
+# 우리의 콜백 코드는 Twisted 루프와 동일한 스레드에서 움직입니다. 
+# 콜백이 달릴 때, Twisted 루프는 움직이지 않습니다. 
+# 반대의 경우도 마찬가지입니다. 
+# 콜백 처리를 되 돌리면 reactor 루프는 다시 시작합니다. 
 
-コールバックの間、Twisted のループは私たちのコード上で結果的にブロックされます。このため、コールバックのコードがいかなる時間も無駄にしないようにしなくてはいけないでしょう。特に、入出力を待つような呼び出し (blocking I/O calls) は避けるべきでしょう。さもなければ、reactor パターンを使っている全ての部分で思わぬ性能の劣化を招いてしまうでしょう。Twisted は私たちのコードがブロックしないように特別な事前注意を促さないでしょうから、私たち自身が確実に注意を払わなくてはいけません。これから時々出会わすように、一般的なネットワークを介した入出力では Twisted に非同期通信をやらせるので、私たちがその難しさを気にする必要はありません。
+콜백 동안 Twisted 루프는 우리의 코드에서 결과적으로 차단됩니다. 따라서 콜백 코드가 어떤 시간도 낭비하지 않도록하지 않으면 안 될 것입니다. 특히 입출력을 기다리는 같은 호출 (blocking I / O calls)는 피해야 것입니다. 그렇지 않으면, reactor 패턴을 사용하고있는 모든 부분에서 예상치 못한 성능 저하를 초래하게된다 것입니다. Twisted는 우리의 코드를 차단하지 않도록 특별한 사전주의를 고무 것이 아니기 때문에 우리 자신이 확실하게주의를 기울여야 안됩니다. 앞으로 가끔 만나지입니다 같이 일반적인 네트워크를 통한 입출력은 Twisted 비동기 통신을하자, 그래서 우리가 그 어려움을 신경 쓸 필요는 없습니다. 
 
-潜在的にブロッキングする操作の他の例としては、ソケットではないファイルディスクリプタ (パイプなど) からの読み書きや、サブプロセスが完了するのを待つことがあります。ブロッキングからノンブロッキング操作に切り替える方法は、何をしているか次第ではありますが、Twisted の API がその助けになることもしばしばあります。なお、多くの Python 標準関数にはノンブロッキングモードに切り替える方法はありません。例えば、 ``os.system`` 関数はサブプロセスが完了するまで常にブロックします。まさに動作している通りです。Twisted を使う上では、 サブプロセスを立ち上げるためには Twisted API のやり方で ``os.system`` を避けるようにしなくてはいけません。
+잠재적으로 차단하는 작업의 다른 예로는 소켓이 아닌 파일 디스크립터 (파이프 등)에서 읽고 쓰기 나 하위 프로세스가 완료 될 때까지 기다릴 수 있습니다. 블로킹에서 비 차단 작업 전환 방법은 무엇을하고 있는지에 따라서는 있지만, Twisted의 API가 도움이 될 수도 종종 있습니다. 또한 많은 Python 표준 함수는 블로킹 모드로 전환하는 방법은 없습니다. 예를 들어``os.system`` 함수는 서브 프로세스가 완료 될 때까지 항상 차단합니다. 바로 실행되는 같습니다. Twisted를 사용하는데는 서브 프로세스를 시작하기 위해서는 Twisted API 방식으로``os.system``을 피하도록하지 않으면 안됩니다. 
 
-さよなら Twisted
-----------------
-reactor の ``stop`` メソッドを使って Twisted の reactor に止まってもらいましょう。しかし、いったん停止した reactor は再起動できませんので、一般的には、プログラムが処理を終了するときにのみそうするべきでしょう。
+안녕 Twisted 
+---------------- 
+reactor의`stop`` 메소드를 사용하여 Twisted의 reactor에 그쳤다합시다. 그러나 중지 한 reactor는 다시 시작할 수 없기 때문에 일반적으로 프로그램이 처리를 종료하는 경우에만 이렇게 할 것입니다. 
 
-    Twisted のメーリングリストで、自由に開始や停止できるように reactor を再起動可能にすべきか、という議論がありました。しかし、バージョン 8.2.0 の時点では reactor を開始 (したがって停止も) できるのは一回きりです。
+     Twisted 메일 링리스트에서 자유롭게 시작 또는 중지 할 수 있도록 reactor를 다시 시작 가능하게 할 것인가라는 논의가있었습니다. 그러나 버전 8.2.0의 시점에서는 reactor를 시작 (따라서 중지도) 수는 원타임입니다. 
 
-これがそのプログラムです。 `basic-twisted/countdown.py <http://github.com/jdavisp3/twisted-intro/blob/master/basic-twisted/countdown.py>`_ にあります。このプログラムは 5 秒間のカウントダウン後に reactor を止めます。
-::
+이것이 프로그램입니다. `basic-twisted / countdown.py <http://github.com/jdavisp3/twisted-intro/blob/master/basic-twisted/countdown.py>`_이 있습니다. 이 프로그램은 5 초 카운트 다운 후 reactor를 중지합니다. 
+: 
 
-    class Countdown(object):
+     class Countdown (object) : 
 
-        counter = 5
+         counter = 5 
 
-        def count(self):
-            from twisted.internet import reactor
-            if self.counter == 0:
-                reactor.stop()
-            else:
-                print self.counter, '...'
-                self.counter -= 1
-                reactor.callLater(1, self.count)
+         def count (self) : 
+             from twisted.internet import reactor 
+             if self.counter == 0 : 
+                 reactor.stop () 
+             else : 
+                 print self.counter '...' 
+                 self.counter - = 1 
+                 reactor.callLater (1 self.count) 
 
-    from twisted.internet import reactor
+     from twisted.internet import reactor 
 
-    reactor.callWhenRunning(Countdown().count)
+     reactor.callWhenRunning (Countdown () count) 
 
-    print 'Start!'
-    reactor.run()
-    print 'Stop!'
+     print 'Start!' 
+     reactor.run () 
+     print 'Stop!' 
 
-Twisted にコールバックを登録するのに ``callLater`` API を使っています。 ``callLater`` ではコールバック関数は第二引数で、第一引数はコールバックを実行してほしいときまでの秒数です。秒数には浮動小数も使えます。
+Twisted 콜백을 등록하는데``callLater`` API를 사용하고 있습니다. ``callLater``에서는 콜백 함수는 두 번째 인수에서 첫 번째 인수는 콜백을 실행하여 원할 때까지의 시간 (초)입니다. 초에는 부동 소수점 사용할 수 있습니다. 
 
-では、Twisted は正確な時間にコールバックを実行するためにどのようにしているのでしょうか？プログラムはファイルディスクリプタを listen していないのに、どうして ``select`` ループなどのように待ち続けるのでしょう？ ``select`` の呼び出し、他の類似のものでもそうですが、は `タイムアウト` の値も受け付けます。タイムアウト値が与えられてその時間内に入出力の準備ができたファイルディスクリプタが何もない場合は、 ``select`` の呼び出しはとにかく処理を戻すでしょう。ついでながら、タイムアウト値にゼロを渡すことで、全くブロックすることなくファイルディスクリプタの集合を素早く確認 (もしくは「ポール」) できます。
+는 Twisted는 정확한 시간에 콜백을 실행하기 위해 어떻게하는 것입니까? 프로그램은 파일 디스크립터를 listen하고 있지 않는데 왜``select`` 루프 등과 같이 계속 기다리는 것일까? ``select`` 호출 다른 유사한 것도 그렇지만,은`시간`의 값을 받아들입니다. 시간 제한이 주어 그 시간에 입출력 준비되어있는 파일 디스크립터가 아무것도 없으면``select`` 호출 어쨌든 처리를 다시 것입니다. 이어하면서 시간 초과 값에 제로를 전달하여 완전히 차단하지 않고 파일 디스크립터 집합 실시간 확인 (또는 "폴") 할 수 있습니다. 
 
-タイムアウトを、":ref:`figure5`"のイベントループが待ち受けるもう一種のイベントととらえることもできます。そして、Twisted は ``callLater`` で登録されたあらゆる「時間指定されたコールバック」(timed callbacks) が間違いなくその時に呼び出されるように、タイムアウトを使います。もしくは、ほぼ時間通り、とも言えます。もしも他のコールバックが本当に長時間の実行になってしまうと、時間指定されたコールバックは予定された時間より遅れてしまうかもしれません。Twisted の ``callLater`` 機構は `ハードリアルタイム <http://en.wikipedia.org/wiki/Real-time_computing#Hard_and_soft_real-time_systems>`_ システムに要求されるような類の保証を提供できません。
+시간을 ": ref :`figure5`"이벤트 루프가 기다리는 또 일종의 이벤트라고 파악할 수 있습니다. 그리고 Twisted는`callLater``에 등록 된 모든 "시간 지정된 콜백"(timed callbacks)이 확실히 당시에 호출되도록 제한 시간을 사용합니다. 또는 거의 시간대로라고 할 수 있습니다. 만약 다른 콜백이 정말 장시간 실행되어 버리면, 시간 지정된 콜백은 예정된 시간보다 늦어 버릴지도 모릅니다. Twisted의`callLater``기구는`하드 실시간 <http://en.wikipedia.org/wiki/Real-time_computing#Hard_and_soft_real-time_systems>`_ 시스템에 요구되는 같은 종류의 보증을 제공하지 않습니다. 
 
-上記のカウントダウンプログラムの出力は次のようになります。
-::
+위의 카운트 다운 프로그램의 출력은 다음과 같습니다. 
+: 
 
-    Start!
-    5 ...
-    4 ...
-    3 ...
-    2 ...
-    1 ...
-    Stop!
+     Start! 
+     5 ... 
+     4 ... 
+     3 ... 
+     2 ... 
+     1 ... 
+     Stop! 
 
-最後の「Stop!」の行は reactor が処理を終了したときに表示され、 ``reactor.run()`` は制御を戻すことに気をつけてください。これで、自分自身で停止できるプログラムができましたね。
+마지막 "Stop!"행은 reactor가 처리를 종료 할 때 나타납니다``reactor.run ()``제어를 되돌릴에주의하십시오. 이제 자신 멈출 수 프로그램 수 있었어요. 
 
-任せたよ Twisted
-------------------
-Twisted はコールバックという形で私たちのコードを呼び出して終了することがしばしばありますので、コールバックが例外を発生させたときに何が起こるかを不思議に思うかもしれません。やってみましょう。 `basic-twisted/exception.py <http://github.com/jdavisp3/twisted-intro/blob/master/basic-twisted/exception.py>`_ のプログラムはあるコールバックの中で例外を発生させますが、他のコールバックは普通に動きます。
-::
+맡긴거야 Twisted 
+------------------ 
+Twisted는 콜백 형태로 우리의 코드를 호출하여 종료하는 경우가 종종 있으므로 콜백이 예외를 발생시킨 때 무슨 일이 일어나는가를 궁금해 모릅니다. 해 봅시다. `basic-twisted / exception.py <http://github.com/jdavisp3/twisted-intro/blob/master/basic-twisted/exception.py>`_ 프로그램이다 콜백에서 예외를 발생시켜 하지만 다른 콜백은 보통으로 움직입니다. 
+: 
 
-    def falldown():
-        raise Exception('I fall down.')
+     def falldown () : 
+         raise Exception ( 'I fall down.') 
 
-    def upagain():
-        print 'But I get up again.'
-        reactor.stop()
+     def upagain () : 
+         print 'But I get up again.' 
+         reactor.stop () 
 
-    from twisted.internet import reactor
+     from twisted.internet import reactor 
 
-    reactor.callWhenRunning(falldown)
-    reactor.callWhenRunning(upagain)
+     reactor.callWhenRunning (falldown) 
+     reactor.callWhenRunning (upagain) 
 
-    print 'Starting the reactor.'
-    reactor.run()
+     print 'Starting the reactor.' 
+     reactor.run () 
 
-コマンドラインから実行してみると、次のような感じの出力になるでしょう。
-::
+명령 줄에서 실행 해 보면 다음과 같은 느낌의 출력이 될 것입니다. 
+: 
 
-    Starting the reactor.
-    Traceback (most recent call last):
-      ... # I removed most of the traceback
-    exceptions.Exception: I fall down.
-    But I get up again.
+     Starting the reactor. 
+     Traceback (most recent call last) : 
+       ... # I removed most of the traceback 
+     exceptions.Exception : I fall down. 
+     But I get up again. 
 
-最初のコールバックが発生させた例外のトレースバックが見えますが、二番目のコールバックは最初のもののあとに実行されていることに気をつけてください。 ``reactor.stop()`` をコメントアウトするとプログラムは永遠に実行し続けるでしょう。コールバックが失敗したとき (例外を報告するでしょうが) でさえ reactor は動き続けるのです。
+첫 번째 콜백이 발생시킨 예외 추적이 보이지만, 두 번째 콜백은 첫 번째 이후에 실행되는 것에주의하십시오. ``reactor.stop ()`을 주석하면 프로그램은 영원히 계속 실행 것입니다. 콜백이 실패했을 때 (예외를보고 하겠지만)조차 reactor는 계속 움직이는 것입니다. 
 
-ネットワークサーバは一般的に非常に堅牢なソフトウェアの集まりであることが肝心です。いかなる不規則なバグが頭をもたげてこようとも、クラッシュすべきではありません。私たち自身のエラーを扱うときに嫌々ながらやるべきと言っているのではなく、Twisted が知らせてくれるということを頭に入れておけば良いのです。
+네트워크 서버는 일반적으로 매우 강력한 소프트웨어 모임 인 것이 중요합니다. 어떤 불규칙한 버그가 고개를 들고 오자도, 충돌해서는 없습니다. 우리 자신의 오류를 처리하기 위해 마지 못해해야 할 말을하는 것이 아니라, Twisted가 알려주는 것을 머리에 넣어두면 좋습니다. 
 
-詩をお願い
-----------------
-これで Twisted を使っていくつかの詩を扱う準備が整いました。":doc:`p04`"では、非同期に詩を取得するクライアントの Twisted 版を実装しましょう。
+시를 부탁 
+---------------- 
+이제 Twisted를 사용하여 일부 구절을 취급하는 준비가되었습니다. ": doc :`p04`"는 비동기 적으로시를 얻는 클라이언트의 Twisted 버전을 구현합시다. 
 
-おすすめの練習問題
-------------------
-#. ``countdown.py`` プログラムを、三つの独立したカウンターが異なる比率で動くようにしてみましょう。全てのカウンターが完了したら reactor を止めてください。
-#. `twisted.internet.task <http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/task.py>`_ の ``LoopingCall`` クラスを見てください。 `LoopingCall <http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/task.py#L23>`_ を使って上記のカウントダウンプログラムを書き直してください。 ``start`` と ``stop`` メソッドを使うだけで構いませんし、「遅延された」(deferred) 戻り値を使う必要はありません。遅延された値が何であるかは、この後のパートで学習することになります。
+추천 연습 문제 
+------------------ 
+#``countdown.py`` 프로그램을 세 가지 독립적 인 카운터가 서로 다른 비율로 움직 이도록하자. 모든 카운터가 완료되면 reactor 중지하십시오. 
+#`twisted.internet.task <http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/task.py>`_ 노``LoopingCall`` 클래스를보고 하십시오. `LoopingCall <http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/task.py#L23>`_를 사용하여 위의 카운트 다운 프로그램을 다시 작성하십시오. ``start``와``stop`` 메소드를 사용하는 것만으로 상관하지 않고 "지연됐다"(deferred) 반환 값을 사용할 필요는 없습니다. 지연 된 값이 무엇인지, 그 다음 파트에서 학습하게됩니다.
 
 ..
     <H2>Part 3: Our Eye-beams Begin to Twist

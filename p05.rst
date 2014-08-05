@@ -1,239 +1,239 @@
-==============================
-パート5: もっと Twisted の詩を
-==============================
+============================== 
+파트 5 : 더 Twisted시를 
+============================== 
 
-抽象的な表現技法
-----------------
-":doc:`p04`"では Twisted を使った最初の詩のクライアントを作りました。ちゃんと動きますが、改善の余地は大いにあります。
+추상적 인 표현 기법 
+---------------- 
+": doc :`p04`"는 Twisted를 사용한 최초의시 클라이언트를 만들었습니다. 제대로 동작하지만, 개선의 여지가 매우 있습니다. 
 
-まず始めに、クライアントのコードにはネットワークソケットを生成したり、そのソケットからデータを受信するようなありふれたものが混ざっています。Twisted は、私たちが新しいプログラムを記述するときに毎回自力で実装する必要がないように、こうした類のことを助けてくれる機能を提供してくれます。非同期入出力では `クライアントコード <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-client-1/get-poetry.py>`_ で見てきたようなちょっとトリッキーな例外処理を扱いますので、このサポートは特にありがたいものです。さらに、複数のプラットフォームで動作するようにしたいと思ったらさらにトリッキーなことが要求されます。暇な時間があれば、"win32" 用の Twisted のコードを眺めて、かのプラットフォームに独特の注意点がどれほどあるかを確認してください。
+먼저, 클라이언트 코드는 네트워크 소켓을 생성하고 그 소켓으로부터 데이터를 수신하는 같은 흔한 것이 섞여 있습니다. Twisted은 우리가 새로운 프로그램을 작성할 때마다 자력으로 구현할 필요가 없도록 이러한 종류의 것을 도와주는 기능을 제공 해줍니다. 비동기 입출력은`클라이언트 코드 <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-client-1/get-poetry.py>`_에서보고 온 것 같은 조금 까다로운 예외 처리를 취급하기 때문에,이 지원은 특히 고마운 것입니다. 또한 여러 플랫폼에서 동작하도록 싶은 경우 더 까다로운 것이 요구됩니다. 여가 시간이 있으면, "win32"용 Twisted 코드를 바라보고,인가 플랫폼에 독특한 주의점이 얼마나 있는지 확인하십시오. 
 
-現状のクライアントが持つもうひとつの問題点はエラーの扱いです。Twisted クライアントのバージョン 1.0 を動かしてみて、サーバが待ち受けていないポートからダウンロードさせてみてください。何も言わずにクラッシュしてしまいます。クライアントを直してもよいのですが、エラー処理は Twisted の API を使った方が簡単です。
+현재 클라이언트가 가진 또 하나의 문제점은 오류 처리입니다. Twisted 클라이언트 버전 1.0을 움직여 봐 서버가 기다리고 있지 않은 포트에서 다운로드 해보십시오. 아무 말없이 충돌하게됩니다. 클라이언트를 고치고도 좋지만 오류 처리는 Twisted의 API를 사용하는 것이 간단합니다. 
 
-最後の問題点は、クライアントの再利用性がないことです。他のモジュールが詩を取得する場合にはどうしましょうか？「呼び出す」モジュールが詩のダウンロードが完了したことを知るにはどうしましょうか？詩の全てを読み込むまでブロックしてしまうような、単純に詩の文字列を返す関数を記述するわけにはいきません。実際的な問題ではありますが、今日のところは修正する気はありません。後のパートまでとっておきましょう。
+마지막 문제는 클라이언트의 재사용 성이 없다는 것입니다. 다른 모듈이시를 취득하는 경우에는 어떻게할까요? "호출"모듈이시의 다운로드가 완료되었음을 알려면 어떻게할까요? 시의 모두 가져 오기까지 차단할 같은 단순히시의 문자열을 반환하는 함수를 작성할 수는 없습니다. 실제적인 문제가 있지만, 오늘은 수정 할 생각은 없습니다. 후 파트까지 아껴 둡시다. 
 
-高レベルの API とインターフェイスを使って、ひとつ目とふたつ目の問題点を修正することにしましょう。Twisted フレームワークは疎結合な抽象化層から成っており、Twisted を学ぶとはこうした層が提供することを学ぶことなのです。つまり、API、インターフェイス、そして実装のそれぞれにおいて利用できることを学ぶ、ということです。ここで紹介することは入門用のことですので、それぞれの抽象化に関して徹底的に詳細まで学習する気はありませんし、くまなく調査する気もありません。Twisted を一緒に使うとラクチンだと思ってもらえるように、最も重要な部分に目を通していくだけです。Twisted のアーキテクチャを取り巻く形式に一旦慣れてしまうと、新しい部分を自習するのはずっと簡単になるでしょう。
+높은 수준의 API와 인터페이스를 사용하여 첫 번째와 두 번째 문제점을 수정하기로합시다. Twisted 프레임 워크는 느슨하게 추상화 계층으로 이루어져 있으며, Twisted을 학습 이러한 계층을 제공하는 것을 배울 것입니다. 즉, API 인터페이스, 구현의 각각에서 유효하다는 것을 배우고 있다는 것입니다. 여기서 소개하는 것은 입문용 것이므로 각각의 추상화에 대해 철저하게 세부까지 학습 할 생각은 없으며, 샅샅이 조사 할 생각도 없습니다. Twisted을 함께 사용하면 편 하니까라고 생각해 줄 수 있도록 가장 중요한 부분을 읽어 갈뿐입니다. Twisted 아키텍처를 둘러싼 형식에 일단 익숙해지면 새로운 부분을 자습하는 것은 매우 쉽게 될 것입니다. 
 
-一般的に、それぞれの Twisted の抽象化はあるコンセプトと一緒に考えられます。たとえば、 ``IReadDescriptor`` を使ってパート４で記述した 1.0 のクライアントには、「読み込み可能なファイルディスクリプタ」という抽象化が見られます。Twisted の抽象化は、たいてい、どのように振舞うかを内包したオブジェクトを規定するインターフェイスで定義されます。Twisted の抽象化を学習するときに覚えておいて欲しい最も大事なことは次の通りです。
+일반적으로 각 Twisted 추상화있는 개념과 함께 생각됩니다. 예를 들어``IReadDescriptor``을 사용하여 파트 4에서 기술 한 1.0 클라이언트는 "읽을 수있는 파일 디스크립터"라는 추상화를 볼 수 있습니다. Twisted 추상화는 대부분 어떻게 행동을 내포 한 객체를 규정하는 인터페이스로 정의됩니다. Twisted 추상화를 배울 때 기억했으면 좋겠다 가장 중요한 것은 다음과 같습니다. 
 
-    「Twisted における最も高レベルの抽象化は、低レベルのものを **使って** 組み立てられています。置き換えでは **ありません** 。」
+     "Twisted에서 가장 높은 수준의 추상화는 낮은 수준의 물건을 **로 ** 조립되어 있습니다. 대체는 ** 아닙니다 **." 
 
-このため、Twisted の新しい抽象化を学んでいくときは、それが何をするのかと何をしないのかの両方を気にかけてください。特に、早い時期に記述された抽象化 A が F という機能を実装しているなら、おそらく F はその他の抽象化では実装されていないでしょう。むしろ、他の B という抽象化が F を必要としているなら、F 自身を実装するのではなく A を使うことになるでしょう。(一般的には、B の実装は A の実装をサブクラス化したものか、A を実装する他のオブジェクトへの参照になるでしょう。)
+따라서 Twisted 새로운 추상화를 배워 갈 때 그것이 무엇을하는지와 무엇을하지 않는지 모두를 걱정하십시오. 특히 초기에 설명 된 추상화 A가 F라는 기능을 구현하고 있다면, 아마 F는 다른 추상화가 구현되지 않은 것입니다. 오히려 다른 B라는 추상화가 F를 필요로하고 있다면, F 자신을 구현하는 것이 아니라 A를 사용하게 될 것입니다. (일반적으로는 B의 구현은 A의 구현을 서브 클래스 화 한 것 또는 A를 구현하는 다른 개체에 대한 참조가 될 것입니다.) 
 
-ネットワーキングは複雑な課題であり、それゆえに Twisted は多くの抽象化を持ちます。まずは低レベルから始めることで、動作する Twisted のプログラムにそれらの全てをまとめる方法をより明確に描けるようになっていけば良いと思います。
+네트워킹는 복잡한 과제이며, 따라서 Twisted 많은 추상화가 있습니다. 우선 낮은 수준에서 시작하여 작동 Twisted 프로그램에 그들 모두를 정리하는 방법을보다 명확하게 그릴 수있게되어 가면 좋다고 생각합니다. 
 
-繰り返し思考
-----------------
-ここまで学んできた最も重要な抽象化は、実際には Twisted における最も重要な抽象化のことですが、reactor です。Twisted を使って構築されるすべてのプログラムの中心には、プログラムがどれほどたくさんの層をもっていようとも、回り続けてすべてのことを進めてくれる reactor ループがあります。Twisted は reactor が提供する機能以外のことを持ち合わせていません。実際、Twisted の他の部分のほとんどは、「reactor を使って X という何かを簡単にするための道具」だと考えられます。X は、「Web ページを提供すること」だったり「データベースへクエリを実行すること」だったり、その他特定の機能のことかもしれません。クライアント 1.0 がそうしているように、低レベルの API に固執することも可能ではありますが、自分たちでより多くのことを実装しなくてはいけません。高レベルの抽象化に移行すると、一般的には少ないコードの記述になります。(Twisted にプラットフォーム依存のややこしいことをやらせますしね。)
+반복 사고 
+---------------- 
+여기까지 배운 가장 중요한 추상화는 실제로는 Twisted있어서 가장 중요한 추상화입니다 만, reactor입니다. Twisted를 사용하여 구축 된 모든 프로그램의 중심에는 프로그램이 얼마나 많은 레이어를 가지고있다 할지라도 계속 돌고 모든 것을 진행 해주는 reactor 루프가 있습니다. Twisted은 reactor가 제공하는 기능 이외의 것을 가지고 있지 않습니다. 실제로 Twisted의 다른 부분의 대부분은 "reactor를 사용하여 X라는 뭔가를 쉽게하기위한 도구"라고 생각합니다. X는 "Web 페이지를 제공하는 것"이거나 "데이터베이스에 쿼리를 실행하는 것"이거나, 기타 특정 기능의 것일지도 모릅니다. 클라이언트 1.0이 이렇게대로 낮은 수준의 API에 충실 할 수는 있지만, 스스로 더 많은 것을 구현하지 않으면 안됩니다. 높은 수준의 추상화로 전환하면 일반적으로 적은 코드를 작성합니다. (Twisted 플랫폼 의존의 까다로운 것을시켜 하구요.) 
 
-しかし、Twisted の層の外で作業しているときは reactor が存在していることを簡単に忘れられます。それなりの大きさの Twisted プログラムでは、reactor API を直接使っている部分はごくわずかでしょう。他の低レベルの抽象化にも同じことが言えます。クライアント 1.0 で使ったファイルディスクリプタの抽象化は、より高レベルの概念によって完全に隠蔽されます。(内部では使われていますが、私たちが目にすることは滅多にありません。)
+그러나 Twisted 층 외부에서 작업하고있는 경우 reactor가 존재하고 있음을 쉽게 잊을 수 있습니다. 그만한 크기의 Twisted 프로그램은 reactor API를 직접 사용하는 부분은 무시할 것입니다. 다른 낮은 수준의 추상화도 마찬가지입니다. 클라이언트 1.0에서 사용한 파일 디스크립터의 추상화는 더 높은 수준의 개념에 의해 완전하게 은폐됩니다. (내부적으로 사용되고 있지만, 우리가 볼 수있는 것은 거의 없습니다.) 
 
-ファイルディスクリプタの抽象化を使っている限りは、実際には問題とはなりません。Twisted に非同期入出力の機構を制御させておくと、私たちは解決すべき問題に集中できるようになります。しかし、reactor は違います。決して見えなくなることはありません。Twisted を使おうと決めることは、Reactor パターンを使うと決めることですし、コールバックと協調的マルチタスクを使う「reactive スタイル」のプログラミングを意図します。Twisted を正確に使いたいなら、reactor の存在 (と、どうやって動作しているのか) を気にしておかなくてはいけません。パート６でもっと詳しいことをやりますが、今のところは次のメッセージをあげましょう。
+파일 디스크립터의 추상화를 사용한다면 실제로는 문제가되지 않습니다. Twisted 비동기 입출력 메커니즘을 제어시켜두면 우리가 해결해야 할 문제에 집중할 수 있도록합니다. 그러나 reactor는 다릅니다. 결코 보이지 않게되는 것은 아닙니다. Twisted를 사용하려고 결정은 Reactor 패턴을 사용하고자 결정하는 것입니다 그리고 콜백과 협력 멀티 태스킹을 사용하는 'reactive 스타일 "프로그래밍을 의도합니다. Twisted를 정확하게 사용하고 싶다면, reactor의 존재 (그리고 어떻게 작동하고 있는지)를 신경 쓰고 두지 않으면 안됩니다. 파트 6에서 더 자세한 일을하고 있지만 지금은 다음 메시지를 줍시다. 
 
-    この入門文書では、":ref:`figure5`"と":ref:`figure6`"が最も重要なダイアグラムです。
+     이 입문서에서는 ": ref :`figure5`"와 ": ref :`figure6`"가장 중요한 다이어그램입니다. 
 
-新しい概念を説明するためにダイアグラムを使い続けるでしょうが、これら二つの図は頭に叩き込んでおかなくてはいけません。私が Twisted を使ってプログラムを書くときには、いつも念頭においている図です。
+새로운 개념을 설명하기 위해 다이어그램을 계속 하겠지만,이 두 그림은 머리에 두드려 넣어 두지 않으면 안됩니다. 내가 Twisted를 사용하여 프로그램을 작성할 때 항상 염두에두고있는 그림입니다. 
 
-コードを見ていく前に、三つの新しい抽象化を紹介します。Transports と Protocols と Protocol Factories です。
+코드를 살펴 전에 세 가지 새로운 추상화를 소개합니다. Transports과 Protocols과 Protocol Factories입니다. 
 
-Transports
-^^^^^^^^^^
-トランスポート層の抽象化は Twisted の中心となる interface_ モジュールの ITransport_ で定義されています。Twisted のトランスポート層はバイトを送受信できる単一の接続を表現します。私たちの詩のクライアントにとっては、トランスポート層は TCP_ 接続を抽象化してくれます。以前は自分自身で実装していた類のものです。しかし、Twisted は `Unix パイプ`_ や UDP_ ソケットなどを介した入出力も提供します。トランスポート層の抽象化はこのような接続のことを表し、それがどのような接続であろうとも非同期入出力の詳細なことを扱います。
+Transports 
+^^^^^^^^^^ 
+전송 계층의 추상화는 Twisted의 핵심 interface_ 모듈 ITransport_에 정의되어 있습니다. Twisted 전송 계층은 바이트를 송수신 할 수있는 단일 연결을 표현합니다. 우리시의 클라이언트에게 전송 계층은 TCP_ 연결을 추상화하여줍니다. 이전에 스스로 구현하고 루이 것입니다. 그러나 Twisted는`Unix 파이프`_ 나 UDP_ 소켓 등을 통한 입출력도 제공합니다. 전송 계층의 추상화는 이러한 연결을 나타내며 그것이 어떤 연결이든 비동기식 입출력의 상세한 것을 처리합니다. 
 
-.. _interface: http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/interfaces.py
-.. _ITransport: http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/interfaces.py#L1289
-.. _TCP: http://en.wikipedia.org/wiki/Transmission_Control_Protocol
-.. _UDP: http://en.wikipedia.org/wiki/Udp
-.. _Unix パイプ: http://en.wikipedia.org/wiki/Unix_pipe#Network_pipes
+.. _interface : http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/interfaces.py 
+.. _ITransport : http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/interfaces.py#L1289 
+.. _TCP : http://en.wikipedia.org/wiki/Transmission_Control_Protocol 
+.. _UDP : http://en.wikipedia.org/wiki/Udp 
+.. _Unix 파이프 : http://en.wikipedia.org/wiki/Unix_pipe#Network_pipes 
 
-``ITransport`` で定義されているメソッドに目を通してみても、データを受信するようなコードが見つからないかもしれません。これは、トランスポート層は常に、低レベルな部分 (接続オブジェクトからデータを非同期に読み込むような部分) を処理し、コールバックを介して私たちにデータを渡すためです。似たようなことですが、トランスポートオブジェクトの書き込みに関するメソッドは、ブロッキングを避けるために即座にはデータを書き出さないようにするかもしれません。トランスポート層にデータを書き出すように知らせることは、「できる限り早くデータを送ってくれ、ただしブロッキングを避けるようにして」ということを意味します。もちろん、データは私たちが渡した通りの順番で書かれるでしょう。
+``ITransport``에 정의 된 메소드를 읽어 봐도 데이터를 수신하는 코드를 찾을 수 없을지도 모릅니다. 이것은 전송 계층은 항상 낮은 수준 부분 (연결 개체에서 데이터를 비동기 적으로로드 같은 부분)을 처리하고 콜백을 통해 우리에게 데이터를 전달하는 것입니다. 비슷한 것이지만, 전송 개체 레코딩에 관한 방법은 블로킹을 피하기 위해 즉시 데이터를 기록하지 않도록 할지도 모릅니다. 전송 계층에 데이터를 써 내도록 알리는 것은 "가능한 한 빨리 데이터를 보내주고, 그러나 블로킹을 피하기 위해 '라는 것을 의미합니다. 물론 데이터는 우리가 전달 잘못된 순서로 쓴 것입니다. 
 
-基本的に、私たちのコードに自分でトランスポートオブジェクトを実装することはありません。むしろ、Twisted がすでに提供してくれていて、reactor に接続をつないでもらうようにするときに生成される実装を使うことになります。
+기본적으로, 우리의 코드에 직접 전송 개체를 구현하는 것은 아닙니다. 오히려 Twisted가 이미 제공 해주고 있고, reactor에 연결을 연결해달라고하게 할 때 생성되는 구현을 사용하게됩니다. 
 
-Protocols
-^^^^^^^^^
-Twisted のプロトコルは同じく interface_ モジュールの IProtocol_ で定義されます。予想通り、プロトコルオブジェクトは プロトコル_ を実装します。つまり、Twisted におけるプロトコルの特定の実装はあるネットワークプロトコル、 FTP_ や IMAP_ や自分たちの目的のために作った名も無きプロトコルのようなもの、を実装すべきということです。私たちの詩のプロトコルはそのようなもののひとつですが、これは接続が確立されるとすぐに詩の全てのバイトを単純に送ります。一方で、接続が閉じられるのは詩の終わりです。
+Protocols 
+^^^^^^^^^ 
+Twisted의 프로토콜은 또한 interface_ 모듈 IProtocol_에서 정의됩니다. 예상대로, 프로토콜 개체 프로토콜 _를 구현합니다. 즉, Twisted의 프로토콜의 특정 구현은 네트워크 프로토콜 FTP_과 IMAP_과 자신들의 목적을 위해 만든 이름도없는 프로토콜과 같은 것,을 구현해야한다는 것입니다. 우리시의 프로토콜은 그런 것들 중 하나입니다 만, 이것은 연결이 설정되면 즉시시의 모든 바이트를 단순히 보냅니다. 한편, 연결이 닫힐 것은시의 끝입니다. 
 
-.. _IProtocol: http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/interfaces.py#L1111
-.. _プロトコル: http://en.wikipedia.org/wiki/Protocol_(computing)
-.. _FTP: http://en.wikipedia.org/wiki/File_Transfer_Protocol
-.. _IMAP: http://en.wikipedia.org/wiki/Internet_Message_Access_Protocol
+.. _IProtocol : http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/interfaces.py#L1111 
+.. _ 프로토콜 : http://en.wikipedia.org/wiki/Protocol_(computing) 
+.. _FTP : http://en.wikipedia.org/wiki/File_Transfer_Protocol 
+.. _IMAP : http://en.wikipedia.org/wiki/Internet_Message_Access_Protocol 
 
-厳密に言えば、それぞれの Twisted プロトコルのオブジェクトはある特定の接続のためのプロトコルを実装します。このため、プログラムで使う接続 (もしくは、サーバの場合には待ちうける接続になります) にはプロトコルのインスタンスがひとつ必要となります。こうすることで、プロトコルのインスタンスは「ステートフル」なプロトコルの状態を保持し、部分的に受信したメッセージのデータを蓄積するのに適したものになります。(非同期入出力で、あるデータサイズのバイト列を受け取るからです。)
+엄밀히 말하면 각 Twisted 프로토콜의 객체는 특정 연결을위한 프로토콜을 구현합니다. 따라서 프로그램에서 사용하는 연결 (또는 서버의 경우에는 대기받는 연결됩니다)에는 프로토콜의 인스턴스가 하나 필요합니다. 이렇게하면 프로토콜의 인스턴스는 "상태"프로토콜 상태를 유지하고 부분적으로받은 메시지의 데이터를 축적하는데 적합한 것입니다. (비동기 입출력에서 데이터 크기의 바이트 열을 받았을 때문입니다.) 
 
-では、プロトコルのインスタンスは何の接続を受け持っているかをどのようにして知るのでしょうか？ ``IProtocol`` の定義を見てみると、 ``makeConnection`` と呼ばれるメソッドが見つかるでしょう。このメソッドはコールバックであり、トランスポートインスタンスを唯一の引数として、Twisted のコードが呼び出します。トランスポートはプロトコルが使おうとしている接続なのです。
+는 프로토콜의 인스턴스는 무엇 연결을 맡고 있는지 어떻게 알수 있을까요? ``IProtocol``의 정의를 보면``makeConnection``라는 방법을 찾을 것입니다. 이 메소드는 콜백이며, 전송 인스턴스를 유일한 인수로서 Twisted 코드를 호출합니다. 전송 프로토콜이 사용하고자하는 연결입니다. 
 
-Twisted には一般的なプロトコルのためにたくさんのプロトコル実装が組み込まれています。 twisted.protocol.basic_ にいくつか簡単な実装があります。新しいプロトコルを書き始める前に Twisted のソースを確認してみるのは良い考えです。利用可能な実装がすでにあるかもしれません。しかし、なかったとしても自分で実装すれば何も問題ありません。詩のクライアントでやっていくことにしましょう。
+Twisted에는 일반적인 프로토콜에 대한 많은 프로토콜 구현이 포함되어 있습니다. twisted.protocol.basic_ 몇 가지 간단한 구현합니다. 새로운 프로토콜을 작성하기 전에 Twisted 소스를 확인해 보는 것은 좋은 생각입니다. 사용 가능한 구현이 이미 있을지도 모릅니다. 그러나 없었다고해도 스스로 구현하면 아무 문제 없습니다. 시 클라이언트에서 지내기로합시다. 
 
-.. _twisted.protocol.basic: http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/protocols/basic.py
+.. _twisted.protocol.basic : http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/protocols/basic.py 
 
-Protocol Factories
-^^^^^^^^^^^^^^^^^^
-それぞれの接続にはプロトコルが必要であり、プロトコルは私たちが実装するクラスのインスタンスかもしれません。Twisted に接続を管理させますので、新しい接続が作られたときはいつでもその場その場で適切なプロトコルを生成する方法が必要です。プロトコルのインスタンスを作るのはプロトコルファクトリの仕事です。
+Protocol Factories 
+^^^^^^^^^^^^^^^^^^ 
+각 연결에는 프로토콜이 필요하며, 프로토콜은 우리가 구현하는 클래스의 인스턴스지도 모릅니다. Twisted 연결을 관리 할 수 있기 때문에 새 연결이 만들어진 때마다 그 자리에서 적절한 프로토콜을 생성하는 방법이 필요합니다. 프로토콜의 인스턴스를 만드는 것은 프로토콜 팩토리의 일입니다. 
 
-たぶん推察の通り、プロトコルファクトリ API は interface_ モジュールの IProtocolFactory_ で定義されます。プロトコルファクトリはデザインパターンの Factory_ の一例であり、その通りに動作します。 ``buildProtocol`` メソッドは呼び出される度に新しいプロトコルインスタンスを返すことになっています。これは、新しい接続の度に新しいプロトコルインスタンスを生成するために Twisted が使うメソッドです。
+아마 짐작대로 프로토콜 팩토리 API는 interface_ 모듈 IProtocolFactory_에서 정의됩니다. 프로토콜 팩토리 디자인 패턴의 Factory_의 일례이며, 그대로 작동합니다. ``buildProtocol`` 메소드는 호출 될 때마다 새로운 프로토콜 인스턴스를 반환하게되어 있습니다. 이것은 새로운 연결마다 새로운 프로토콜 인스턴스를 생성하기 위해 Twisted가 사용하는 메소드입니다. 
 
-.. _IProtocolFactory: http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/interfaces.py#L1259
-.. _Factory: http://en.wikipedia.org/wiki/Factory_pattern
+.. _IProtocolFactory : http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/interfaces.py#L1259 
+.. _Factory : http://en.wikipedia.org/wiki/Factory_pattern 
 
-詩を取得するクライアント 2.0: まずは Blood.0
---------------------------------------------
-よし、それでは Twisted の詩のクライアントのバージョン 2.0 を見ていきましょう。コードは `twisted-client-2/get-poetry.py`_ にあります。他のものと同様に動かすことができ、煩雑なので載せませんが、似たような出力になるでしょう。これは、バイトを受信するとタスク番号を出力する最後のバージョンになります。ここまでは、全ての Twisted プログラムは交互にタスクを実行し、一度に比較的小さなデータのかたまりしか処理しませんでした。これからも大事な局面では何が起こっているかを表示するために ``print`` 文を使っていきますが、冗長な出力はやめます。
+시를 얻는 클라이언트 2.0 : 우선 Blood.0 
+-------------------------------------------- 
+좋아, 그럼 Twisted시 클라이언트 버전 2.0를 살펴 봅시다. 코드는`twisted-client-2 / get-poetry.py`_에 있습니다. 다른 것들과 마찬가지로 움직일 수 번잡 한 때문에 올려 없지만 비슷한 출력이 될 것입니다. 이것은 바이트를 수신하면 작업 번호를 출력하는 마지막 버전입니다. 여기까지는 모든 Twisted 프로그램은 교대로 작업을 수행하고 한 번에 비교적 작은 데이터 덩어리 밖에 처리하지 못했습니다. 앞으로도 중요한 국면에서는 무슨 일이 일어나고 있는지를 표시하기 위해``print`` 문장을 사용하고 있습니다 만, 중복 출력은 중지합니다. 
 
-.. _twisted-client-2/get-poetry.py: http://github.com/jdavisp3/twisted-intro/blob/master/twisted-client-2/get-poetry.py
+.. _twisted-client-2 / get-poetry.py : http://github.com/jdavisp3/twisted-intro/blob/master/twisted-client-2/get-poetry.py 
 
-バージョン 2.0 のクライアントでは、ソケットが見えなくなりました。 ``socket`` モジュールをインポートすらしていませんし、ソケットオブジェクトやファイルディスクリプタなどを参照しません。その代わりに、 `このようにして <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-client-2/get-poetry.py#L110>`_ reactor に詩のサーバに接続するように伝えています。
-::
+버전 2.0 클라이언트는 소켓이 보이지 않습니다. ``socket`` 모듈을 가져올조차하지 않고, 소켓 객체 나 파일 디스크립터 등을 참조하지 않습니다. 대신,`이렇게하여 <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-client-2/get-poetry.py#L110>`_ reactor에시 서버에 연결하도록 전하고 있습니다. 
+: 
 
-    factory = PoetryClientFactory(len(addresses))
+     factory = PoetryClientFactory (len (addresses)) 
 
-    from twisted.internet import reactor
+     from twisted.internet import reactor 
 
-    for address in addresses:
-        host, port = address
-        reactor.connectTCP(host, port, factory)
+     for address in addresses : 
+         host, port = address 
+         reactor.connectTCP (host, port, factory) 
 
 
-``connectTCP`` メソッドに注目してください。最初のふたつの引数は見たままです。三つ目の引数は私たちの PoetryClientFactory_ のインスタンスです。これは詩のクライアントのプロトコルファクトリであり、Twisted が必要に応じて私たちの PoetryProtocol_ インスタンスを生成できるように reactor に渡します。
+``connectTCP`` 방법에 주목하십시오. 처음 두 인수는 본 그대로입니다. 세 번째 인수는 우리의 PoetryClientFactory_의 인스턴스입니다. 이것은시 클라이언트의 프로토콜 팩토리이며 Twisted이 필요한 우리의 PoetryProtocol_ 인스턴스를 생성 할 수 있도록 reactor에 전달합니다. 
 
-.. _PoetryClientFactory: http://github.com/jdavisp3/twisted-intro/blob/master/twisted-client-2/get-poetry.py#L69
-.. _PoetryProtocol: http://github.com/jdavisp3/twisted-intro/blob/master/twisted-client-2/get-poetry.py#L52
+.. _PoetryClientFactory : http://github.com/jdavisp3/twisted-intro/blob/master/twisted-client-2/get-poetry.py#L69 
+.. _PoetryProtocol : http://github.com/jdavisp3/twisted-intro/blob/master/twisted-client-2/get-poetry.py#L52 
 
-以前のクライアントにおける ``PoetrySocket`` オブジェクトとは違い、ファクトリもプロトコルもスクラッチから実装しているわけではないことに気をつけてください。その代わりに、Twisted が twisted.internet.protocol_ で提供しているベース実装をサブクラス化しています。基本となるファクトリの基底クラスは twisted.internet.protocol.Factory_ ですが、私たちはクライアントに特化されたサブクラスである ClientFactory_ を使っています。(サーバのように接続を待ち受けるのではなく、接続を生成します。)
+이전 클라이언트에서``PoetrySocket`` 개체와 달리 팩토리도 프로토콜도 처음부터 구현하는 것은 아니라는 점에주의하십시오. 대신 Twisted가 twisted.internet.protocol_에서 제공하는 기반 구현을 상속합니다. 기본이되는 팩토리의 기본 클래스는 twisted.internet.protocol.Factory_이지만, 우리는 고객에 특화된 서브 클래스 인 ClientFactory_을 사용하고 있습니다. (서버처럼 접속을 기다리는 것이 아니라 연결을 생성합니다.) 
 
-.. _twisted.internet.protocol: http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/protocol.py
-.. _twisted.internet.protocol.Factory: http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/protocol.py#L24
-.. _ClientFactory: http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/protocol.py#L103
+.. _twisted.internet.protocol : http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/protocol.py 
+.. _twisted.internet.protocol.Factory : http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/protocol.py#L24 
+.. _ClientFactory : http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/protocol.py#L103 
 
-Twisted の ``Factory`` クラスは ``buildProtocol`` を実装しているという利点も享受できます。私たちの `サブクラス <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-client-2/get-poetry.py#L79>`_ 内で基底クラスの実装を呼び出すのです。
-::
+Twisted의`Factory`` 클래스는`buildProtocol``을 구현하고 있다는 이점도 누릴 수 있습니다. 우리의`서브 클래스 <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-client-2/get-poetry.py#L79>`_에서 기본 클래스 구현을 호출합니다 . 
+: 
 
-    def buildProtocol(self, address):
-        proto = ClientFactory.buildProtocol(self, address)
-        proto.task_num = self.task_num
-        self.task_num += 1
-        return proto
+     def buildProtocol (self, address) : 
+         proto = ClientFactory.buildProtocol (self, address) 
+         proto.task_num = self.task_num 
+         self.task_num + = 1 
+         return proto 
 
-基底クラスは何のプロトコルを構築するかをどのようにして知るのでしょうか？ ``PoetryClientFactory`` の ``protocol`` 属性を設定しているのです。
-::
+기본 클래스는 어떤 프로토콜을 구축하는 방법을 어떻게 알수 있을까요? ``PoetryClientFactory``의`protocol`` 속성을 설정하는 것입니다. 
+: 
 
-    class PoetryClientFactory(ClientFactory):
+     class PoetryClientFactory (ClientFactory) : 
 
-        task_num = 1
+         task_num = 1 
 
-        protocol = PoetryProtocol # tell base class what proto to build
+         protocol = PoetryProtocol # tell base class what proto to build 
 
-基底 ``Factory`` クラスは、 ``protocol`` 属性に設定したクラス (つまり ``PoetryProtocol`` のことです) をインスタンス化し、新しいインスタンスにおける ``factory`` 属性をその「親」のファクトリへの参照になるように設定することで ``buildProtocol`` を実装します。この様子を図８に示します。
+기저``Factory`` 클래스는`protocol`` 속성에 설정 한 클래스 (즉``PoetryProtocol``입니다)를 인스턴스화 해, 새로운 인스턴스에서``factory`` 속성을 그 "부모"의 팩토리 에 대한 참조가되도록 설정하여``buildProtocol``를 구현합니다. 이 모습을 그림 8에 나타냅니다. 
 
-.. _figure8:
+.. _figure8 : 
 
-.. figure:: images/p05_protocols-1.png
+.. figure :: images / p05_protocols-1.png 
 
-    図８：プロトコルが生成されるとき
+     그림 8 : 프로토콜이 생성 될 때 
 
-上で述べたように、プロトコルオブジェクトの ``factory`` 属性は、同じファクトリから作られたプロトコルに状態を共有させます。ファクトリは「ユーザコード」で生成されますので、同じ属性がプロトコルオブジェクトに通信を許可することにより、リクエストの初期化が最初に発生した時点でコードに結果を返します。これはパート６で見ていきます。
+위에서 언급 한 바와 같이, 프로토콜 개체의`factory`` 속성은 동일한 공장에서 만들어진 프로토콜 상태를 공유 ​​할 수 있습니다. 팩토리는 "사용자 코드"에서 생성되기 때문에 동일한 속성이 프로토콜 개체에 통신을 허용함으로써 요청의 초기화가 최초로 발생한 시점에서 코드에 결과를 반환합니다. 이것은 6 부에서 살펴 보겠습니다. 
 
-プロトコルの ``factory`` 属性はプロトコルファクトリのインスタンスを参照しますが、ファクトリの ``protocol`` 属性はプロトコルのクラスを参照します。一般には、単一のファクトリは複数のプロトコルインスタンスを生成するでしょう。
+프로토콜``factory`` 속성은 프로토콜 팩토리의 인스턴스를 참조 합니다만, 팩토리``protocol`` 속성은 프로토콜의 클래스를 참조합니다. 일반적으로 단일 팩토리는 여러 프로토콜 인스턴스를 생성하는 것입니다. 
 
-プロトコル生成の二番目の段階では、 ``makeConnection`` メソッドを使って、Transport を持ったプロトコルに接続します。このメソッドを自分で実装する必要はありません。Twisted の基底クラスが標準の実装を提供してくれるからです。初期設定では、 ``makeConnection`` は ``transport`` 属性の Transport への参照を保存し、 ``connected`` 属性を真 (True) に設定します。図９にその様子を描きました。
+프로토콜 생성의 두 번째 단계에서는``makeConnection`` 메소드를 사용하여 Transport를 가진 프로토콜에 연결합니다. 이 메소드를 직접 구현할 필요는 없습니다. Twisted의 기본 클래스가 표준 구현을 제공하여주기 때문입니다. 기본적으로``makeConnection``는`transport`` 속성 Transport에 대한 참조를 저장하고``connected`` 속성을 참 (True)로 설정합니다. 그림 9에 그 모습을 그렸습니다. 
 
-.. _figure9:
+.. _figure9 : 
 
-.. figure:: images/p05_protocols-2.png
+.. figure :: images / p05_protocols-2.png 
 
-    図９：プロトコルと Transport の出会い
+     그림 9 : 프로토콜과 Transport의 만남 
 
-この方法で一旦初期化されると、プロトコルは実際の仕事に取り掛かれます。低レベルのデータの流れを高レベルのプロトコルメッセージの流れに変換する (逆も同様です) ことです。入力データを処理するために鍵となるメソッドは ``dataReceived`` です。これは私たちのクライアントでは `このように <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-client-2/get-poetry.py#L57>`_ 実装しています。
-::
+이 방법으로 일단 초기화되면 프로토콜은 실제 작업을 시작할 수 있습니다. 낮은 수준의 데이터 흐름을 높은 수준의 프로토콜 메시지 흐름 변환 (반대도 마찬가지입니다)입니다. 입력 데이터를 처리하는 핵심 메서드는`dataReceived``입니다. 이것은 우리의 클라이언트는`이렇게 <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-client-2/get-poetry.py#L57>`_ 구현하고 있습니다 . 
+: 
 
-    def dataReceived(self, data):
-        self.poem += data
-        msg = 'Task %d: got %d bytes of poetry from %s'
-        print  msg % (self.task_num, len(data), self.transport.getHost())
+     def dataReceived (self, data) : 
+         self.poem + = data 
+         msg = 'Task % d : got % d bytes of poetry from % s' 
+         print msg % (self.task_num, len (data) self.transport.getHost ()) 
 
-``dataReceived`` が呼ばれる度に文字列形式で新しいバイト列 (``data``) を得ます。非同期入出力にはつきものですが、どれくらいのデータを受け取るかを知るすべはありませんので、完全なプロトコルメッセージを受け取るまでバッファに溜めなくていけません。私たちの場合だと、詩は接続が閉じられるまで終わりませんので、 ``.poem`` 属性にバイトを追加し続けます。
+``dataReceived``이 불릴 때마다 문자열 형식으로 새로운 바이트 (``data``)를 얻습니다. 비동기 입출력은 본래이지만, 어느 정도의 데이터를 받는지를 알 방법이 없기 때문에, 완전한 프로토콜 메세지를받을 때까지 버퍼에 모아 않아 안됩니다. 우리의 경우라면,시는 연결이 닫힐 때까지 끝나지 않으므로``.poem`` 특성에 바이트를 추가하고 있습니다. 
 
-どのサーバから届いたデータかを区別するために Transport の `getHost <http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/interfaces.py#L1341>`_ メソッドを使っています。これは、前のクライアントとの一貫性のためにやっているだけです。そうでなければ Transport を明示的に使う必要は全くありません。サーバへ何もデータを送らないからです。
+어떤 서버에서받은 데이터를 구별하기 위해 Transport의`getHost <http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/interfaces.py#L1341>` _ 메소드를 사용하고 있습니다. 이것은 이전 클라이언트와의 일관성을 위해하고있을뿐입니다. 그렇지 않으면 Transport를 명시 적으로 사용할 필요는 전혀 없습니다. 서버에 아무것도 데이터를 전송하기 때문입니다. 
 
-``dataReceived`` メソッドが呼ばれたときに何が起こっているかをちょっと見ていきましょう。バージョン 2.0 のクライアントと同じディレクトリに ``twisted-client-2/get-poetry-stack.py`` というもう一つのクライアントがあります。 ``dataReceived`` メソッドが次のように変更された以外は、2.0 のクライアントのようになります。
-::
+``dataReceived`` 메소드를 호출 할 때 무슨 일이 일어나고 있는지 좀 살펴 보자. 버전 2.0 클라이언트와 같은 디렉토리에``twisted-client-2 / get-poetry-stack.py``라는 또 다른 클라이언트가 있습니다. ``dataReceived`` 메소드가 다음과 같이 변경된 이외는 2.0 클라이언트 수 있습니다. 
+: 
 
-    def dataReceived(self, data):
-        traceback.print_stack()
-        os._exit(0)
+     def dataReceived (self, data) : 
+         traceback.print_stack () 
+         os._exit (0) 
 
-この変更によってプログラムはスタックトレースを出力します。そして、データを受け取った最初のタイミングで終了します。このバージョンを動かしてみるとこんな感じになります。
-::
+이 변경에 의해 프로그램은 스택 트레이스를 출력합니다. 그리고 데이터를받은 첫 번째 시간에 종료됩니다. 이 버전을 움직여 보면 이런 느낌입니다. 
+: 
 
-    python twisted-client-2/get-poetry-stack.py 10000
+     python twisted-client-2 / get-poetry-stack.py 10000 
 
-次のようなスタックトレースが得られるでしょう。
-::
+다음과 같은 스택 추적을 얻을 수있을 것이다. 
+: 
 
-    File "twisted-client-2/get-poetry-stack.py", line 125, in
-        poetry_main()
+     File "twisted-client-2 / get-poetry-stack.py", line 125, in 
+         poetry_main () 
 
-    ... # I removed a bunch of lines here
+     ... # I removed a bunch of lines here 
 
-    File ".../twisted/internet/tcp.py", line 463, in doRead  # Note the doRead callback
-        return self.protocol.dataReceived(data)
-    File "twisted-client-2/get-poetry-stack.py", line 58, in dataReceived
-        traceback.print_stack()
+     File "... / twisted / internet / tcp.py", line 463, in doRead # Note the doRead callback 
+         return self.protocol.dataReceived (data) 
+     File "twisted-client-2 / get-poetry-stack.py", line 58, in dataReceived 
+         traceback.print_stack () 
 
-1.0 のクライアントで使った ``doRead`` コールバックがありますね！前にも述べたように、Twisted は既存の機能を置き換えるのではなくそれらを使って新しい抽象化層を組み立てます。ですから、今でも ``IReadDescriptor`` の実装はしっかりと動作していますし、私たちのコードではなく、Twisted によって実装されているのです。もし興味をもったなら、Twisted の実装は ``twisted.internet.tcp`` の中にあります。コードを追いかけてみると、 ``IWriteDescriptor`` と ``ITransport`` を実装する同じオブジェクトを目にするでしょう。このため、 ``IReadDescriptor`` は実際には見せかけの Transport オブジェクトです。 ``dataReceived`` コールバックは図１０のように表せます。
+1.0 클라이언트에서 사용한``doRead`` 콜백이 있군요! 앞서 언급 한 바와 같이, Twisted는 기존의 기능을 대체하는 것이 아니라 그들을 통해 새로운 추상화 계층을 조립합니다. 그래서 지금도``IReadDescriptor``의 구현은 제대로 작동하고 있으며, 우리의 코드가 아니라 Twisted에 의해 구현되는 것입니다. 만약 관심을 가진다면 Twisted 구현``twisted.internet.tcp``에 있습니다. 코드를 쫓아 보면``IWriteDescriptor``와``ITransport``을 구현하는 동일한 개체를 볼 수있을 것이다. 따라서``IReadDescriptor`` 실제로 보이는 Transport 객체입니다. ``dataReceived`` 콜백은 그림 10과 같이 나타낼 수 있습니다. 
 
-.. _figure10:
+.. _figure10 : 
 
-.. figure:: images/p05_reactor-data-received.png
+.. figure :: images / p05_reactor-data-received.png 
 
-    図１０： ``dataReceived`` コールバック
+     그림 10 :``dataReceived`` 콜백 
 
 
-詩をダウンロードし終えると ``PoetryProtocol`` オブジェクトは ``PoetryClientFactory`` に知らせます。
-::
+시를 다운로드하고 나면``PoetryProtocol`` 객체는`PoetryClientFactory``에 알립니다. 
+: 
 
-    def connectionLost(self, reason):
-        self.poemReceived(self.poem)
+     def connectionLost (self, reason) : 
+         self.poemReceived (self.poem) 
 
-    def poemReceived(self, poem):
-        self.factory.poem_finished(self.task_num, poem)
+     def poemReceived (self, poem) : 
+         self.factory.poem_finished (self.task_num, poem) 
 
-トランスポートの接続が閉じられるときは ``connectionLost`` コールバックが関係してきます。 ``reason`` 引数は接続がきれいに閉じられたのかエラーのせいなのかという追加情報を持つ twisted.python.failure.Failure_ オブジェクトです。私たちのクライアントは単にこの値を無視するだけで、詩を受信しきったと仮定します。
+전송 연결이 닫힐 때``connectionLost`` 콜백이 관계하고 있습니다. ``reason`` 인수는 연결이 예쁘게 닫힌인지 오류의 탓인지는 추가 정보가있는 twisted.python.failure.Failure_ 개체입니다. 우리의 클라이언트는 단순히이 값을 무시하는 것만으로,시를 수신 해 버린 가정합니다. 
 
-.. _twisted.python.failure.Failure: http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/python/failure.py
+.. _twisted.python.failure.Failure : http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/python/failure.py 
 
-全ての詩をダウンロードし終えると、ファクトリは reactor を終了させます。私たちのプログラムがやっていることといえば詩をダウンロードしているだけ、ということをもう一度確認してください。これでは ``PoetryClientFactory`` オブジェクトの再利用性が低くなってしまいます。次のパートで修正するとして、ここでは ``poem_finished`` コールバックが詩の数を追いかけている方法に着目してください。
-::
+모든시를 다운로드하고 나면 팩토리는 reactor를 종료합니다. 우리의 프로그램이하고있는 일이라고시를 다운로드하는 것 뿐이라는 것을 다시 확인하십시오. 이것은에는 'PoetryClientFactory`` 객체 재사용 성이 낮아지고 버립니다. 다음 파트에서 수정으로 여기에는 'poem_finished`` 콜백시 수를 쫓는 방법에 주목하십시오. 
+: 
 
-    ...
-        self.poetry_count -= 1
+     ... 
+         self.poetry_count - = 1 
 
-        if self.poetry_count == 0:
-            ...
+         if self.poetry_count == 0 : 
+             ... 
 
-それぞれの詩が別々のスレッドでダウンロードされるようなマルチスレッドプログラムを書いていたとすれば、ふたつ以上のスレッドが ``poem_finished`` を同時に呼び出さないように、この部分のコードをロックで保護する必要があります。さもないと、reactor を二回終了させることになるかもしれません (そんな問題のためにトレースバックを得られるわけですが)。しかし、reactive システムではそんな面倒なことは必要ありません。reactor は一度にひとつのコールバックしか操作しませんので、このような問題は起こりようもありません。
+각 구절이 별도의 스레드에서 다운로드되는 같은 멀티 스레드 프로그램을 썼다면, 두 개 이상의 스레드가``poem_finished``를 동시에 호출하지 않도록이 부분의 코드를 잠금으로 보호해야 수 있습니다. 그렇지 않으면, reactor를 두 번 종료 시키게 될지도 모릅니다 (그런 문제 때문에 추적을 얻을 수있는 것입니다 만). 그러나 reactive 시스템에서는 그런 귀찮은 것은 필요 없습니다. reactor 한번에 하나의 콜백 만 조작하지 않으므로 이러한 문제가 발생 것과도 없습니다. 
 
-新しいクライアントは 1.0 クライアントよりも寛容に接続の失敗も扱います。その部分を実行する ``PoetryClientFactory`` クラスにおけるコールバックは次の通りです。
-::
+새로운 클라이언트 1.0 클라이언트보다 너그 럽게 연결 실패도 취급합니다. 그 부분을 실행하는``PoetryClientFactory`` 클래스의 콜백은 다음과 같습니다. 
+: 
 
-    def clientConnectionFailed(self, connector, reason):
-        print 'Failed to connect to:', connector.getDestination()
-        self.poem_finished()
+     def clientConnectionFailed (self, connector, reason) : 
+         print 'Failed to connect to :'connector.getDestination () 
+         self.poem_finished () 
 
-コールバックはファクトリにあり、プロトコルではないことに注目してください。プロトコルは接続が確立された後にしか生成されませんので、接続を確立できないことを知るのはファクトリ、ということになります。
+콜백은 팩토리 있고 프로토콜이 아님에 주목하십시오. 프로토콜은 연결이 된 후에 만 생성되지 않으므로 연결을 설정할 수 없음을 알고는 팩토리라는 것입니다. 
 
-もっと簡単なクライアント
-^^^^^^^^^^^^^^^^^^^^^^^^
-新しいクライアントはすでに非常に簡単ですが、タスク番号を意識しなくてよければ、もっと簡単にできます。結局のところ、クライアントは正に詩そのものになるでしょう。簡略化されたバージョン 2.1 の実装は `twisted-client-2/get-poetry-simple.py <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-client-2/get-poetry-simple.py>`_ にあります。
+더 간단한 클라이언트 
+^^^^^^^^^^^^^^^^^^^^^^^^ 
+새로운 클라이언트는 이미 매우 간단하지만 작업 번호를 의식하지 않아도 좋으면 더 쉽게 할 수 있습니다. 결국, 클라이언트는 바로시 자체가 될 것입니다. 단순화 된 버전 2.1의 구현은`twisted-client-2 / get-poetry-simple.py <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-client-2/get- poetry-simple.py>`_이 있습니다. 
 
-まとめ
-------
-クライアント 2.0 は、すべての Twisted ハッカーが慣れ親しんでおくべき Twisted の抽象化を使います。もし、いくつかの詩を出力して終了するようなコマンドラインクライアントで十分なら、ここで止めてしまってプログラムは出来上がったことにしてしまえます。しかし、再利用できるコード、つまり、いくつかの詩をダウンロードしてほかの何かも実行するような大規模なプログラムに組み込めるコードが欲しいとなると、やるべきことはまだあります。":doc:`p06`"ではそこに焦点を当てることにしましょう。
+정리 
+------ 
+클라이언트 2.0은 모든 Twisted 해커가 익숙해 져 있어야 Twisted 추상화를 사용합니다. 만약 어떤시를 출력 해 종료하도록 명령 줄 클라이언트에서 충분하면 여기서 멈춰 버린 프로그램은 완성 된로 버리면됩니다. 그러나 재사용 코드, 즉 일부 구절을 다운로드하여 다른 무언가도 실행할 같은 큰 프로그램에 임베드 코드를 갖고 싶다고되면해야 할 일이 아직 있습니다. ": doc :`p06`"는 거기에 초점을두기로합시다. 
 
-おすすめの練習問題
-------------------
-#. 指定された時間が経過しても詩をダウンロードし終えないときはクライアントにタイムアウトさせるために ``callLater`` を使ってください。タイムアウトで接続を閉じるためにはトランスポートの `loseConnection <http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/interfaces.py#L1321>`_ メソッドを使ってください。なお、時間内に詩をダウンロードし終えたらタイムアウトをキャンセルすることを忘れないでくださいね。
-#. ``connectionLost`` が呼び出されたときに発生するコールバックの呼び出し順序を解析するため、スタックトレースメソッドを使ってください。
+추천 연습 문제 
+------------------ 
+#. 지정된 시간이 경과하여도 다운로드 되었으면 않을 때는 클라이언트 시간 초과시키기 위해``callLater``을 사용하십시오. 시간에 연결을 닫기 위해서는 전송`loseConnection <http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/interfaces.py#L1321>`_ 메소드를 사용하십시오. 또한 시간에시를 다운로드 한 후에 시간을 취소하는 것을 잊지 말아주세요. 
+#``connectionLost``가 불려 갔을 때 발생하는 콜백의 호출 순서를 분석하기 위해 스택 추적 방법을 사용하십시오.
 
 ..
     <H2>Part 5: Twistier Poetry

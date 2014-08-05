@@ -1,337 +1,337 @@
-======================
-パート7: Deferred 入門
-======================
+====================== 
+7 부 : Deferred 소개 
+====================== 
 
-コールバックとその結果
-----------------------
-":doc:`p06`"では、次の事実にたどり着きました。コールバックは非同期プログラミングの基礎を成すのです。reactor と向き合う方法というだけでなく、コールバックは私たちが書くどのような Twisted プログラムの構成でも編み込みます。Twisted やどのような reactor ベースの非同期システムを使うときも、私たちのコードを特定の方法で構成しておくことを意味します。reactor ループが呼び出す一連のコールバック・チェーンとして、です。
+콜백과 그 결과 
+---------------------- 
+": doc :`p06`"는 다음과 같은 사실에 도착했습니다. 콜백은 비동기 프로그래밍의 초석입니다. reactor과 마주 방법 일뿐 아니라 콜백은 우리가 쓰는 어떤 Twisted 프로그램의 구성도 짜 포함합니다. Twisted 숙소 같은 reactor 기반 비동기 시스템을 사용할 때도 우리의 코드를 특정 방식으로 구성하는 것이 의미합니다. reactor 루프가 호출 일련의 콜백 체인으로합니다. 
 
-`get_poetry <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-client-3/get-poetry-1.py#L81>`_ 関数くらい簡単な API でさえも二つのコールバックを要求します。ひとつは通常の結果に対してのもの、もうひとつはエラーに対してのものです。Twisted プログラマとしてはこれらをできる限り使いこなせるようにならなくてはいけませんので、コールバックの最も良い使い方や、これから出くわすかもしれない落とし穴について考えることに少しは時間を割くべきでしょう。
+`get_poetry <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-client-3/get-poetry-1.py#L81>`_ 함수 정도 간단한 API조차도 두 통화 백을 요청합니다. 하나는 보통의 결과에 대한 것이고 다른 하나는 오류에 대한 것이다. Twisted 프로그래머로서 이들을 최대한 잘 다룰 수있게 돼서는 안되기 때문에 콜백 가장 좋은 방법이나, 앞으로 우연히 만날지도 모른다 함정에 대하여 생각에 조금 시간을 할애 할 것입니다. 
 
-クライアント 3.1 から持ってきた ``get_poetry`` の Twisted バージョンについて考えてみましょう。
-::
+클라이언트 3.1에서 가져온``get_poetry``의 Twisted 버전에 대해 생각해 봅시다. 
+: 
 
-    ...
-    def got_poem(poem):
-        print poem
-        reactor.stop()
+     ... 
+     def got_poem (poem) : 
+         print poem 
+         reactor.stop () 
 
-    def poem_failed(err):
-        print >>sys.stderr, 'poem download failed'
-        print >>sys.stderr, 'I am terribly sorry'
-        print >>sys.stderr, 'try again later?'
-        reactor.stop()
+     def poem_failed (err) : 
+         print >> sys.stderr 'poem download failed' 
+         print >> sys.stderr 'I am terribly sorry' 
+         print >> sys.stderr 'try again later?' 
+         reactor.stop () 
 
-    get_poetry(host, port, got_poem, poem_failed)
+     get_poetry (host, port, got_poem, poem_failed) 
 
-    reactor.run()
+     reactor.run () 
 
-ここでの基本的な考え方は明らかですね。
+여기에서 기본적인 생각은 분명하네요. 
 
-#. 詩を取得したら、出力しなさい。
-#. 詩を取得できなかったら、エラーの俳句を出力しなさい。
-#. どちらの場合もプログラムを停止しなさい。
+#.시를 얻으면 출력하십시오. 
+#.시를 얻을 수없는 경우 오류의 하이쿠를 출력하십시오. 
+#. 두 경우 모두 프로그램을 중지하십시오. 
 
-上記の同期版はこんな感じでしょうか。
-::
+상기 동기화 버전은 이런 느낌일까요? 
+: 
 
-    ...
-    try:
-        poem = get_poetry(host, port) # the synchronous version of get_poetry
-    except Exception, err:
-        print >>sys.stderr, 'poem download failed'
-        print >>sys.stderr, 'I am terribly sorry'
-        print >>sys.stderr, 'try again later?'
-        sys.exit()
-    else:
-        print poem
-        sys.exit()
+     ... 
+     try : 
+         poem = get_poetry (host, port) # the synchronous version of get_poetry 
+     except Exception, err : 
+         print >> sys.stderr 'poem download failed' 
+         print >> sys.stderr 'I am terribly sorry' 
+         print >> sys.stderr 'try again later?' 
+         sys.exit () 
+     else : 
+         print poem 
+         sys.exit () 
 
-コールバックは ``else`` 節でエラー用コールバックは ``except`` のようなものです。エラー用のコールバック呼び出しは非同期においては例外を発生させることで、通常のコールバックは普通の制御フローに相当します。
+콜백은`else`` 절에서 오류에 대한 콜백``except`` 같은 것입니다. 오류에 대한 콜백 호출은 비동기에서는 예외를 발생시키는 것으로 일반적으로 콜백은 일반적인 제어 흐름에 해당합니다. 
 
-この二つのバージョンの違いは何でしょう？ひとつは、同期バージョンでは Python インタープリタが次のことを保証します。 ``get_poetry`` がいかなる理由でどのような種類の例外を発生させようとも、 ``except`` ブロックは実行されます。インタープリタが Python のコードを正確に実行してくれると信じるなら、エラーブロックは適切な時に実行されるでしょう。
+이 두 버전의 차이점은 무엇입니까? 하나는 동기화 버전에서는 Python 인터프리터가 다음을 보장합니다. ``get_poetry``이 어떤 이유로 어떤 종류의 예외를 발생 시키려고도,`except`` 블록은 실행됩니다. 인터프리터가 Python 코드를 정확하게 실행 해 준다고 믿는다면 오류 블록은 적절한 때에 실행되는 것입니다. 
 
-非同期バージョンと対比してみましょう。 ``poem_failed`` というエラー用コールバックは "私たちの" コードから呼ばれます。 `PoetryClientFactory <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-client-3/get-poetry-1.py#L66>`_ の `clientConnectionFailed <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-client-3/get-poetry-1.py#L77>`_ メソッドです。何かがおかしくなったときにエラーコードを確実に実行させるのは、Python ではなく、私たちの責任です。このため、 ``Failure`` オブジェクトを伴ったエラー用コールバックを呼び出すときは、考えられるあらゆるエラーケースを扱えるようにしなくてはなりません。さもなくば、プログラムは決して辿りつくことのないコールバックを待ってスタックしてしまいます。
+비동기 버전과 비교하여 봅시다. ``poem_failed`` 오류에 대한 콜백은 "우리의"코드라고합니다. `PoetryClientFactory <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-client-3/get-poetry-1.py#L66>`_ 노`clientConnectionFailed <http://github.com /jdavisp3/twisted-intro/blob/master/twisted-client-3/get-poetry-1.py#L77>`_ 메소드입니다. 무언가가 잘못되면 오류 코드를 확실히 실행시키는 것은 Python 아니라 우리의 책임입니다. 따라서``Failure`` 개체를 동반 한 오류에 대한 콜백을 호출 할 때는 가능한 모든 에러 케이스를 취급 할 수 있도록하지 않으면 안됩니다. 그렇지 않다면, 프로그램은 결코 다다를 수없는 콜백을 기다리고 스택 버립니다. 
 
-このことは、同期と非同期のもう一つの違いを表しています。もしも非同期バージョンで例外をキャッチしていなければ (``try/except`` を使わないで)、Python インタープリタがそれをキャッチしてエラーを表示して終了していたことでしょう。しかし、 ``PoetryClientFactory`` でエラー用コールバックの呼び出しを面倒がって省略していたら、私たちのプログラムは延々と動作し続けるでしょう。さも何も起こっていないかのように。
+이것은 동기와 비동기의 또 다른 차이점을 보여줍니다. 만약 비동기 버전에서 예외를 catch해야 (``try / except``없이), Python 인터프리터가 그것을 캐치 해 오류를 표시하고 종료했다 것입니다. 그러나``PoetryClientFactory`` 오류에 대한 콜백의 호출을 귀찮은 따라서 생략하는 경우 우리의 프로그램은 끝없이 계속 작동 것입니다. 자못 아무것도 일어나지 않은 것처럼. 
 
-明らかに非同期プログラムにおけるエラーの扱いは重要であり、いくらかトリッキーです。非同期コードでエラーを処理することは実は通常の場合を扱うよりも大事かもしれません。うまくいくときより遥かに明後日の方向に行ってしまうからです。エラー処理を忘れることは、Twisted を使ったプログラミングでのよくある間違いです。
+분명히 비동기 프로그램의 오류 처리는 중요하며 약간 까다 롭습니다. 비동기 코드에서 오류를 처리하는 것은 사실 일반적인 경우를 처리보다 훨씬 더 중요 할지도 모릅니다. 잘 될 때보다 훨씬 모레의 방향으로 가고 있기 때문이다. 오류 처리를 잊을 수는 Twisted를 사용한 프로그래밍의 일반적인 실수입니다. 
 
-上記の同期版のコードに関するもうひとつの事実もあります。 ``else`` ブロックがただ一度だけ実行されるか、 ``except`` ブロックがただ一度だけ実行されるかのどちらかです (同期版の ``get_poetry`` は無限ループに陥らないと考えておいてください)。Python インタープリタはそれらの両方を実行するのか ``else`` ブロックを27回実行するのか、すぐには決めません。基本的に Python のプログラムでそうすることは不可能です。
+상기 동기화 버전의 코드에 대한 또 다른 사실도 있습니다. ``else`` 블록이 단 한 번만 실행되거나``except`` 블록이 단 한 번만 실행되는지 중 하나입니다 (동기화 버전``get_poetry`` 무한 루프에 빠지지 않는다고 생각 두십시오). Python 인터프리터는 둘 다 실행하는지``else`` 블록을 27 회 수행하는지, 즉시 결정 없습니다. 기본적으로 Python 프로그램에서 이렇게하는 것은 불가능합니다. 
 
-しかし、私たちがコールバックかエラー用コールバックを実行させる責任を負っている、非同期の場合についてもう一度考えてみましょう。お気づきかもしれませんが、いくつかの間違いを犯しているかもしれません。コールバックとエラー用コールバックの両方を呼び出すこともできましたし、コールバックだけを27回呼び出すこともできました。これは ``get_poetry`` を使う人には不幸な結果になってしまいます。docstring は明示的に述べていませんが、次のことは言わずに実際には実行されてしまうのです。 ``try/except`` 節にある ``else`` と ``except`` ブロックのように、 ``get_poetry`` のそれぞれの呼び出しにおいて、コールバックがただ一度だけ実行されるかエラー用コールバックがただ一度だけ実行されます。詩を受け取るか受け取らないかのどちらかなのです。
+그러나 우리가 콜백 또는 오류에 대한 콜백을 실행할 책임이있는 비동기의 경우에 대해 다시 생각해 봅시다. 기억할지 모르지만 몇 가지 실수를하고 있을지도 모릅니다. 콜백 및 오류에 대한 콜백을 모두 호출 할 수 있었고, 콜백 만 27 번 호출 할 수있었습니다. 이것은``get_poetry``를 사용하는 사람은 불행한 결과가되어 버립니다. docstring 명시 적으로 언급하지 않지만, 다음의 것은 말하지 않고 실제로 실행되어 버립니다. ``try / except`` 절에있는``else``와``except`` 블록처럼``get_poetry``의 각각의 호출에서 콜백이 단 한 번만 실행되거나 오류에 대한 호출 백이 단 한 번만 실행됩니다. 시를 받거나받지 않는가의 어느 쪽 일까입니다. 
 
-三つの詩を要求して7回のコールバック呼び出しと2回のエラー用コールバック呼び出しがあったプログラムをデバッグしようとするところを思い浮かべてください。どこから始めましょうか？おそらくコールバックとエラー用コールバックを、それらが同じ ``get_poetry`` 呼び出しに対して二回目の呼び出しがあったときを検知し、例外を送出するように書いてみることになるでしょう。 ``get_poetry`` をそんな感じにしてみましょう。
+세시를 요구하고 7 회 콜백 호출과 2 번의 오류에 대한 콜백 호출이 맞는 프로그램을 디버깅하려고하는 곳을 상상하라. 어디서부터 시작할까요? 아마 콜백 및 오류에 대한 콜백을 모두 같은``get_poetry`` 호출에 두 번째 호출이있을 때를 감지하고 예외를 송출하도록 작성하려고 할 것입니다. ``get_poetry``를 그런 느낌으로하자. 
 
-もう一つ見ておくことがあります。どちらのバージョンもいくつか重複したコードがあります。非同期版は二つの ``reactor.stop`` 呼び出しがあり、同期版は ``sys.exit`` があります。同期版はこんな感じでリファクタリングしましょうか。
-::
+또 볼 것이 있습니다. 두 버전 모두 일부 중복 된 코드가 있습니다. 비동기 버전은 두``reactor.stop`` 호출이 동기화 버전은`sys.exit`` 있습니다. 동기화 버전은 이런 식으로 리팩토링할까요. 
+: 
 
-    ...
-    try:
-        poem = get_poetry(host, port) # the synchronous version of get_poetry
-    except Exception, err:
-        print >>sys.stderr, 'poem download failed'
-        print >>sys.stderr, 'I am terribly sorry'
-        print >>sys.stderr, 'try again later?'
-    else:
-        print poem
+     ... 
+     try : 
+         poem = get_poetry (host, port) # the synchronous version of get_poetry 
+     except Exception, err : 
+         print >> sys.stderr 'poem download failed' 
+         print >> sys.stderr 'I am terribly sorry' 
+         print >> sys.stderr 'try again later?' 
+     else : 
+         print poem 
 
-    sys.exit()
+     sys.exit () 
 
-似たような方法で非同期版もリファクタリングできるでしょうか？実ははっきりとはしません。コールバックとエラー用コールバックはふたつの異なる関数だからです。では、単一のコールバックに戻さなくてはいけないのでしょうか？
+비슷한 방법으로 비동기 버전도 리팩토링 수 있을까요? 실은 명확하게하지 않습니다. 콜백 및 오류에 대한 콜백은 두 가지 함수이기 때문입니다. 는 단일 콜백에 반환하지 않으면 안되는 것일까 요? 
 
-まぁまぁ。コールバックを使うプログラミングに関して分かってきたことのいくつかとして次のことがあります。
+아무튼. 콜백을 사용 프로그래밍에 대해 알게 된 것들 중 일부로서 다음의 것이 있습니다. 
 
-#. エラー用コールバックを呼び出すことは大事です。エラー用コールバックは ``except`` ブロックの位置を占めますので、ユーザーはそれらをアテにできる必要があります。私たちの API ではオプショナルな機能などではありません。
-#. 間違ったときにコールバックを呼び出さないことは正しいときに呼び出すのと同じように大事です。典型的なユースケースにおいて、コールバックとエラー用コールバックはお互いに排他的でただ一度だけ呼び出されます。
-#. コールバックを使うと、一般的なコードのリファクタリングも難しくなるかもしれません。
+# 오류에 대한 콜백을 호출 할 중요합니다. 오류에 대한 콜백``except`` 블록의 위치를 차지하고 있기 때문에, 사용자는 그들에 의존 할 수 있어야합니다. 우리의 API는 선택적 기능 등은 없습니다. 
+#. 잘못되면 콜백을 호출하지 정시에 호출하는 것과 같이 중요합니다. 전형적인 유스 케이스에서 콜백 및 오류에 대한 콜백은 서로 배타적 단 한 번만 호출됩니다. 
+# 콜백을 사용하면 일반적인 코드의 리팩토링도 어려울지도 모릅니다. 
 
-後々のパートでコールバックについてより詳しく説明していきます。しかし、今のところは Twisted にはこうしたことをなんとかするための抽象化がある理由が分かれば十分です。
+나중 부분에서 콜백에 대해 자세히 설명하고 있습니다. 그러나 지금은 Twisted에는 이러한 것을 어떻게 든하기위한 추상화있는 이유가 알면 충분합니다. 
 
-遅延オブジェクト
-----------------
-非同期プログラミングではコールバックが多用されますし、それらを正しく使うことはいくらかトリッキーになりえますので、Twisted の開発者はコールバックを使うプログラミングを簡単にするために ``Deferred`` と呼ばれる抽象化を作りました。 ``Deferred`` クラスは `twisted.internet.defer <http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/defer.py#L132>`_ で定義されています。
+지연 개체 
+---------------- 
+비동기 프로그래밍 콜백이 많이 사용되고 있으며, 그들을 제대로 사용하는 것은 다소 까다로운이 될 수 있으므로 Twisted 개발자는 콜백을 사용 프로그래밍을 쉽게하기 위해``Deferred``라는 추상화 을 만들었습니다. ``Deferred`` 클래스는`twisted.internet.defer <http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/defer.py#L132>`_에서 정의 되어 있습니다. 
 
-    "deferred" という言葉は今日の英語における動詞か形容詞のどちらかです。名詞として使うのは若干不思議に思われるかもしれません。
-    ここからは、私が "the deferred" か "a deferred" というフレーズを使うときは、 ``Deferred`` クラスのインスタンスを指すと考えてください
-    。なぜそれが ``Deferred`` と呼ばれるのかを先々のパートでみていきましょう。
-    "the deferred result" のように、それぞれのフレーズに "result" (結果) という言葉を付け加えてみると理解の助けになるかもしれません。
-    ときおり見ることになりますが、実際にそれが何であるか、というコトなのです。(訳注：名詞として使う "deferred" は「遅延オブジェクト」、クラス名として使われる "Deferred" はそのままの表記とします。)
+     "deferred"라는 말은 오늘의 영어의 동사 또는 형용사 중 하나입니다. 명사로 사용하는 것은 약간 이상하게 생각 될지도 모릅니다. 
+     여기에서 내가 "the deferred"또는 "a deferred"라는 문구를 사용할 때는``Deferred`` 클래스의 인스턴스를 가리킨다 고 생각합니다 
+     . 왜``Deferred``라는지를 곳마다 파트에서보고 갑시다. 
+     "the deferred result"처럼 각각의 문구에 "result"(결과)라는 말을 덧붙였다 보면 이해에 도움이 될지도 모릅니다. 
+     때때로 보게됩니다 만, 실제로 그것이 무엇인지는 코트입니다. (역주 : 명사로 사용 "deferred"는 "지연 개체"클래스 이름으로 사용되는 "Deferred"는 그대로 표기합니다.) 
 
-遅延オブジェクトはコールバック・チェーンのペアを持ちます。ひとつは通常の結果に対するもので、もうひとつはエラーに対するものです。新しく生成された遅延オブジェクトはふたつの空のチェーンを持ちます。コールバックとエラー用コールバックを付け加えることでチェーンを有効化し、通常の結果 (詩が届いた、ということです) か例外 (詩を得られなかったので、その理由です) のどちらかと一緒に遅延オブジェクトを作動 (訳注：fire) させます。遅延オブジェクトを作動させると、適切なコールバックかエラー用コールバックを、それが追加された順番で呼び出します。図１２は、遅延オブジェクトとそのコールバックとエラー用コールバックを表しています。
+지연 객체는 콜백 체인의 쌍을 가지고 있습니다. 하나는 보통의 결과에 대한 것이고 다른 하나는 오류에 대한 것입니다. 새롭게 생성 된 지연 객체는 두 하늘의 체인이 있습니다. 콜백 및 오류에 대한 콜백을 붙여서 체인을 활성화하고 정상적인 결과 (시이 도착했다는 것입니다) 또는 예외 (시를 얻을 수 없었기 때문에 그 이유) 중 하나와 함께 지연 오브젝트를 작동 (역주 : fire)시킵니다. 지연 개체를 작동 시키면 적절한 콜백 또는 오류에 대한 콜백을 그것이 추가 된 순서대로 호출합니다. 그림 12은 지연 객체와 콜백 및 오류에 대한 콜백을 나타냅니다. 
 
-.. _figure12:
+.. _figure12 : 
 
-.. figure:: images/p07_deferred-1.png
+.. figure :: images / p07_deferred-1.png 
 
-    図１２：遅延オブジェクト
+     그림 12 : 지연 개체 
 
 
-実際に実装してみましょう。遅延オブジェクトは reactor を使いませんので、ループを開始することなくテストできます。
+실제로 구현하여 봅시다. 지연 개체 reactor를 사용하지 않으므로 루프를 시작하지 않고 테스트 할 수 있습니다. 
 
-    ``Deferred`` クラスにあり reactor を使う ``setTimeout`` と呼ばれるメソッドに気付いたかもしれません。それは古い使用で、将来のリリースでは存在しなくなるでしょう。深入りせず、使わないでくださいね。
+     ``Deferred`` 클래스에 reactor를 사용``setTimeout``라는 메소드에 발견 할 수도 있습니다. 그것은 오래 사용에서 릴리스에서는 존재하지 않을 것입니다. 깊이 설명하지 않고 사용하지 말아주세요. 
 
-最初の例は `twisted-deferred/defer-1.py <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-deferred/defer-1.py>`_ にあります。
-::
+첫 번째 예는`twisted-deferred / defer-1.py <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-deferred/defer-1.py>`_이 있습니다. 
+: 
 
-    from twisted.internet.defer import Deferred
+     from twisted.internet.defer import Deferred 
 
-    def got_poem(res):
-        print 'Your poem is served:'
-        print res
+     def got_poem (res) : 
+         print 'Your poem is served' 
+         print res 
 
-    def poem_failed(err):
-        print 'No poetry for you.'
+     def poem_failed (err) : 
+         print 'No poetry for you.' 
 
-    d = Deferred()
+     d = Deferred () 
 
-    # add a callback/errback pair to the chain
-    d.addCallbacks(got_poem, poem_failed)
+     # add a callback / errback pair to the chain 
+     d.addCallbacks (got_poem, poem_failed) 
 
-    # fire the chain with a normal result
-    d.callback('This poem is short.')
+     # fire the chain with a normal result 
+     d.callback ( 'This poem is short.') 
 
-    print "Finished"
+     print "Finished" 
 
-このコードでは新しい遅延オブジェクトを作成し、 ``addCallbacks`` メソッドによってコールバックとエラー用コールバックのペアを追加し、 ``callback`` メソッドで通常の結果に対するチェーンを開始させます。もちろん、単一のコールバックしか持ち合わせていませんのでチェーンではありませんが、ここでは問題ではありません。コードを実行させてみると以下の出力を得られるでしょう。
+이 코드는 새로운 지연 개체를 만들고``addCallbacks`` 메소드에 의해 콜백 및 오류에 대한 콜백 쌍을 추가하고``callback`` 메소드에서 보통의 결과에 대한 체인을 시작합니다. 물론 하나의 콜백 만 가지고 있지 않으므로 체인은 아니지만, 여기에 문제가 없습니다. 코드를 실행시켜 보면 다음과 같은 결과를 얻을 수 있습니다. 
 
-::
+: 
 
-    Your poem is served:
-    This poem is short.
-    Finished
+     Your poem is served : 
+     This poem is short. 
+     Finished 
 
-簡単ですね。とはいえ、気をつけるべきことがいくつかあります。
+간단하네요. 하지만주의해야 할 몇 가지 있습니다. 
 
-#. クライアント 3.1 で使ったコールバックとエラー用コールバックのペアと同じように、私たちが遅延オブジェクトに付け加えたコールバックはそれぞれひとつの引数を取ります。
-   通常の結果かエラーの結果のどちらかです。遅延オブジェクトは複数の引数をサポートすることも明らかにしていきますが、いつでも少なくともひとつは必要ですし、最初の引数は通常の結果かエラーのどちらかです。
-#. 遅延オブジェクトにはコールバックとエラー用コールバックをペアにして追加します。
-#. ``callback`` メソッドは遅延オブジェクトの通常結果を引き起こします。メソッドの引数がその結果です。
-#. ``print`` が出力する順番を見てみると、遅延オブジェクトに合図を送るとすぐにコールバックを呼び出していることが分かります。
-   非同期に実行されている箇所が見当たりません。reactor が動いていないので当然です。いわゆる Python の関数呼び出しと変わりありません。
+# 클라이언트 3.1에서 사용한 콜백 및 오류에 대한 콜백 쌍처럼 우리가 지연 개체 덧붙였다 콜백은 각각 하나의 인수를 취합니다. 
+    보통의 결과 또는 오류의 결과 중 하나입니다. 지연 개체는 여러 인수를 지원하는 것도 분명히하고 있습니다 만, 언제나 적어도 하나는 필요하고 첫 번째 인수는 정상적인 결과 또는 오류 중 하나입니다. 
+# 지연 객체는 콜백 및 오류에 대한 콜백을 쌍을 추가합니다. 
+#``callback`` 메서드는 지연된 개체의 일반적 결과가 발생합니다. 메소드의 인수가 그 결과입니다. 
+#``print``가 출력하는 순서를 보면, 지연 개체에 신호를 보내면 즉시 콜백을 호출하는 것을 알 수 있습니다. 
+    비동기 적으로 실행되는 부분이 존재하지 않습니다. reactor가 작동하지 않기 때문에 당연합니다. 이른바 Python의 함수 호출과 다르지 않습니다. 
 
-それでは、次に進んでみましょう。 `twisted-deferred/defer-2.py <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-deferred/defer-2.py>`_ の例では遅延オブジェクトのエラー用コールバックチェーンを実行させます。
-::
+그러면 다음 진행하자. `twisted-deferred / defer-2.py <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-deferred/defer-2.py>`_ 예에서 지연 개체의 오류에 대한 호출 백 체인을 실행시킵니다. 
+: 
 
-    from twisted.internet.defer import Deferred
-    from twisted.python.failure import Failure
+     from twisted.internet.defer import Deferred 
+     from twisted.python.failure import Failure 
 
-    def got_poem(res):
-        print 'Your poem is served:'
-        print res
+     def got_poem (res) : 
+         print 'Your poem is served' 
+         print res 
 
-    def poem_failed(err):
-        print 'No poetry for you.'
+     def poem_failed (err) : 
+         print 'No poetry for you.' 
 
-    d = Deferred()
+     d = Deferred () 
 
-    # add a callback/errback pair to the chain
-    d.addCallbacks(got_poem, poem_failed)
+     # add a callback / errback pair to the chain 
+     d.addCallbacks (got_poem, poem_failed) 
 
-    # fire the chain with an error result
-    d.errback(Failure(Exception('I have failed.')))
+     # fire the chain with an error result 
+     d.errback (Failure (Exception ( 'I have failed'))) 
 
-    print "Finished"
+     print "Finished" 
 
-スクリプトを実行してみると以下の出力になるでしょう。
-::
+스크립트를 실행 해 보면 다음과 같은 결과가 될 것입니다. 
+: 
 
-    No poetry for you.
-    Finished
+     No poetry for you. 
+     Finished 
 
-エラー用のコールバックチェーンを開始させるには、 ``callback`` メソッドではなく ``errback`` メソッドを呼び出し、引数はエラー結果になります。コールバックと同じように、合図があるとすぐに呼び出されます。
+오류에 대한 콜백 체인을 시작하려면``callback`` 방법이 아니라``errback`` 메서드를 호출 인수는 오류 결과입니다. 콜백과 마찬가지로 신호가 있으면 즉시 호출됩니다. 
 
-先ほどの例ではクライアント 3.1 でそうしたように、 ``Failure`` オブジェクトを ``errback`` メソッドに渡しました。これはこれで良いのですが、遅延オブジェクトは ``Exception`` を ``Failure`` に変換してくれます。 `twisted-deferred/defer-3.py <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-deferred/defer-3.py>`_ を見てください。
-::
+이전 예제에서는 클라이언트 3.1에서 그랬던 것처럼``Failure`` 객체를``errback`` 메서드에 전달했습니다. 이것은 이것대로 좋지만, 지연 객체는`Exception``을``Failure``로 변환 해줍니다. `twisted-deferred / defer-3.py <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-deferred/defer-3.py>`_를보세요. 
+: 
 
-    from twisted.internet.defer import Deferred
+     from twisted.internet.defer import Deferred 
 
-    def got_poem(res):
-        print 'Your poem is served:'
-        print res
+     def got_poem (res) : 
+         print 'Your poem is served' 
+         print res 
 
-    def poem_failed(err):
-        print err.__class__
-        print err
-        print 'No poetry for you.'
+     def poem_failed (err) : 
+         print err .__ class__ 
+         print err 
+         print 'No poetry for you.' 
 
-    d = Deferred()
+     d = Deferred () 
 
-    # add a callback/errback pair to the chain
-    d.addCallbacks(got_poem, poem_failed)
+     # add a callback / errback pair to the chain 
+     d.addCallbacks (got_poem, poem_failed) 
 
-    # fire the chain with an error result
-    d.errback(Exception('I have failed.'))
+     # fire the chain with an error result 
+     d.errback (Exception ( 'I have failed')) 
 
-ここでは通常の ``Exception`` を ``errback`` に渡しています。エラー用コールバックの中で、そのクラスとエラー結果自体を出力します。
-こんな出力になります。
-::
+여기에서는 일반적으로``Exception``을``errback``에 전달합니다. 오류에 대한 콜백에서 해당 클래스 및 오류 결과 자체를 출력합니다. 
+이런 출력됩니다. 
+: 
 
-    twisted.python.failure.Failure
-    [Failure instance: Traceback (failure with no frames): : I have failed.
-    ]
-    No poetry for you.
+     twisted.python.failure.Failure 
+     [Failure instance : Traceback (failure with no frames) : I have failed. 
+     ] 
+     No poetry for you. 
 
-    訳注：処理系またはバージョンによっては "type" が出力されるかもしれません。
-    ::
+     역주 : 처리 계 또는 버전에 따라 "type"이 출력 될지도 모릅니다. 
+     : 
 
-        twisted.python.failure.Failure
-        [Failure instance: Traceback (failure with no frames): &lt;type 'exceptions.Excepti
-        on'&gt;: I have failed.
-        ]
-        No poetry for you.
+         twisted.python.failure.Failure 
+         [Failure instance : Traceback (failure with no frames) : & lt; type 'exceptions.Excepti 
+         on '& gt; : I have failed. 
+         ] 
+         No poetry for you. 
 
-このことは、遅延オブジェクトを使うときは元々の ``Exception`` を扱えば十分であり、 ``Failure`` は自動的に生成される、ということを意味します。遅延オブジェクトはそれぞれのエラー用コールバックが ``Failure`` インスタンスと共に呼び出されることを保証してくれるのです。
+이것은 지연 개체를 사용할 때는 원래의`Exception``를 다루면 충분``Failure``는 자동으로 생성된다는 것을 의미합니다. 지연 개체는 각각의 오류에 대한 콜백이``Failure`` 인스턴스와 함께 호출되는 것을 보장하여주는 것입니다. 
 
-ここまでで、 ``callback`` に進んだ場合と ``errback`` に進んだ場合を見てきました。良きエンジニアがそうであるように、何度も繰り返してみたくなりましたか？コードをより簡潔にするため、 ``lambda`` を使ってコールバックを追加してみましょう。 `twisted-deferred/defer-4.py <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-deferred/defer-4.py>`_ を見てください。
-::
+지금까지``callback``에 진행된 경우와``errback``에 진행된 경우를보고 왔습니다. 좋은 엔지니어가 그러 하듯이 반복해서보고 싶어 했나요? 코드를 더 간결하게하기 위해서``lambda``를 사용하여 콜백을 추가하여 봅시다. `twisted-deferred / defer-4.py <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-deferred/defer-4.py>`_를보세요. 
+: 
 
-    from twisted.internet.defer import Deferred
-    def out(s): print s
-    d = Deferred()
-    d.addCallbacks(lambda r: out(r), lambda e: out(e))
-    d.callback('First result')
-    d.callback('Second result')
-    print 'Finished'
+     from twisted.internet.defer import Deferred 
+     def out (s) : print s 
+     d = Deferred () 
+     d.addCallbacks (lambda r : out (r), lambda e : out (e)) 
+     d.callback ( 'First result') 
+     d.callback ( 'Second result') 
+     print 'Finished' 
 
-すると、次の出力を得られます。
-::
+그러면 다음과 같은 출력을 얻을 수 있습니다. 
+: 
 
-    First result
-    Traceback (most recent call last):
-      ...
-    twisted.internet.defer.AlreadyCalledError
+     First result 
+     Traceback (most recent call last) : 
+       ... 
+     twisted.internet.defer.AlreadyCalledError 
 
-これはおもしろいですね！遅延オブジェクトは正常系のコールバックを二回は呼び出させてくれません。実際のところ、遅延オブジェクトはそれが何であっても二回は呼び出されません。これらの例を実際に見てください。
+이것은 재밌 네요! 지연 개체가 성공적 계의 콜백을 두 번 호출 해주지 않습니다. 사실, 지연 객체는 그것이 무엇이든 두 번 호출되지 않습니다. 이 예를 실제로보세요. 
 
-* `twisted-deferred-4.py <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-deferred/defer-4.py>`_
-* `twisted-deferred-5.py <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-deferred/defer-5.py>`_
-* `twisted-deferred-6.py <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-deferred/defer-6.py>`_
-* `twisted-deferred-7.py <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-deferred/defer-7.py>`_
+*`twisted-deferred-4.py <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-deferred/defer-4.py>`_ 
+*`twisted-deferred-5.py <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-deferred/defer-5.py>`_ 
+*`twisted-deferred-6.py <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-deferred/defer-6.py>`_ 
+*`twisted-deferred-7.py <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-deferred/defer-7.py>`_ 
 
-最後の ``print`` 文はひとつも呼ばれていないことに注意してください。 ``callback`` と ``errback`` メソッドは正真正銘の ``Exception`` を送出し、その遅延オブジェクトを既に実行したと知らせてくれます。コールバック・プログラミングではよくある落とし穴のひとつです。遅延オブジェクトは、その落とし穴に私たちが落ちてしまわないようにしてくれます。コールバックを管理するために遅延オブジェクトを使うと、コールバックとエラー用コールバックの両方を呼び出してしまう間違いを犯しませんし、コールバックを 27 回も呼び出してしまうこともありません。やってみれば分かりますが、遅延オブジェクトは即座に例外を送出します。誤った呼び出しをコールバック自体に渡してしまうことはありません。
+마지막``print`` 문장은 하나라고도 않은 점에 유의하십시오. ``callback``와``errback`` 메소드는 진정한``Exception``를 전달하고 지연 개체를 이미 수행했다고 알려줍니다. 콜백 프로그래밍에서는 일반적인 함정 중 하나입니다. 지연 개체는 그 함정에 우리가 떨어져 버리지 않게 해줍니다. 콜백을 관리하기 위해 지연 개체를 사용하여 콜백 및 오류에 대한 콜백 모두를 호출 해 버리는 실수를하지 않으며 콜백을 27 번 호출 버릴 수도 없습니다. 해보면 알겠지만, 지연 개체는 즉시 예외를 전달합니다. 잘못된 호출을 콜백 자체에 전달 버리는 것은 아닙니다. 
 
-それでは、遅延オブジェクトは非同期なコードのリファクタリングの助けになるのでしょうか？ `twisted-deferred/defer-8.py <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-deferred/defer-8.py>`_ にある例で考えてみましょう。
-::
+그럼 지연 개체는 비동기 코드 리팩토링 도움이 될 것입니까? `twisted-deferred / defer-8.py <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-deferred/defer-8.py>`_의 예로 생각해 봅시다 . 
+: 
 
-    import sys
+     import sys 
 
-    from twisted.internet.defer import Deferred
+     from twisted.internet.defer import Deferred 
 
-    def got_poem(poem):
-        print poem
-        from twisted.internet import reactor
-        reactor.stop()
+     def got_poem (poem) : 
+         print poem 
+         from twisted.internet import reactor 
+         reactor.stop () 
 
-    def poem_failed(err):
-        print >>sys.stderr, 'poem download failed'
-        print >>sys.stderr, 'I am terribly sorry'
-        print >>sys.stderr, 'try again later?'
-        from twisted.internet import reactor
-        reactor.stop()
+     def poem_failed (err) : 
+         print >> sys.stderr 'poem download failed' 
+         print >> sys.stderr 'I am terribly sorry' 
+         print >> sys.stderr 'try again later?' 
+         from twisted.internet import reactor 
+         reactor.stop () 
 
-    d = Deferred()
+     d = Deferred () 
 
-    d.addCallbacks(got_poem, poem_failed)
+     d.addCallbacks (got_poem, poem_failed) 
 
-    from twisted.internet import reactor
+     from twisted.internet import reactor 
 
-    reactor.callWhenRunning(d.callback, 'Another short poem.')
+     reactor.callWhenRunning (d.callback 'Another short poem.') 
 
-    reactor.run()
+     reactor.run () 
 
-基本的には先に示した元々の例と一緒ですが、reactor を動かす追加のコードがあります。reactor が動き始めた後で遅延オブジェクトに命令を飛ばすために `callWhenRunning <http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/interfaces.py#L766>`_ を使っていることに注意してください。 ``callWhenRunning`` は、それが動作するときにコールバックへ渡すためのキーワード引数を追加で受け取る、ということを活用しています。コールバックを登録する多くの Twisted API は同じ習慣に従います。遅延オブジェクトにコールバックを追加する API も同様です。
+기본적으로 먼저 보여준 원래의 예제와 함께하지만 reactor를 이동 추가 코드가 있습니다. reactor가 움직이기 시작한 후에 지연 개체에 명령을 조종하기 위해`callWhenRunning <http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/interfaces.py#L766> `_를 사용하는 것에주의하십시오. ``callWhenRunning``는 그것이 작동 할 때 콜백에 전달하는 키워드 인수를 추가로받을 수 있다는 것을 활용하고 있습니다. 콜백을 등록하는 많은 Twisted API는 같은 습관에 따릅니다. 지연 객체에 콜백을 추가하는 API도 마찬가지입니다. 
 
-コールバックとエラー用コールバックの両方が reactor を停止させます。遅延オブジェクトは正常系のコールバックとエラー用コールバックのチェーンをサポートしていますので、一般的なコードをチェーンの二つ目のリンクにリファクタリングできます。 `twisted-deferred/defer-9.py <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-deferred/defer-9.py>`_ で紹介するテクニックです。
-::
+콜백 및 오류에 대한 콜백 모두 reactor를 정지시킵니다. 지연 개체가 성공적 계의 콜백 및 오류에 대한 콜백 체인을 지원하고 있기 때문에, 일반적인 코드를 체인의 두 번째 링크에 리팩토링 수 있습니다. `twisted-deferred / defer-9.py <http://github.com/jdavisp3/twisted-intro/blob/master/twisted-deferred/defer-9.py>`_에서 소개하는 기술입니다. 
+: 
 
-    import sys
+     import sys 
 
-    from twisted.internet.defer import Deferred
+     from twisted.internet.defer import Deferred 
 
-    def got_poem(poem):
-        print poem
+     def got_poem (poem) : 
+         print poem 
 
-    def poem_failed(err):
-        print >>sys.stderr, 'poem download failed'
-        print >>sys.stderr, 'I am terribly sorry'
-        print >>sys.stderr, 'try again later?'
+     def poem_failed (err) : 
+         print >> sys.stderr 'poem download failed' 
+         print >> sys.stderr 'I am terribly sorry' 
+         print >> sys.stderr 'try again later?' 
 
-    def poem_done(_):
-        from twisted.internet import reactor
-        reactor.stop()
+     def poem_done (_) : 
+         from twisted.internet import reactor 
+         reactor.stop () 
 
-    d = Deferred()
+     d = Deferred () 
 
-    d.addCallbacks(got_poem, poem_failed)
-    d.addBoth(poem_done)
+     d.addCallbacks (got_poem, poem_failed) 
+     d.addBoth (poem_done) 
 
-    from twisted.internet import reactor
+     from twisted.internet import reactor 
 
-    reactor.callWhenRunning(d.callback, 'Another short poem.')
+     reactor.callWhenRunning (d.callback 'Another short poem.') 
 
-    reactor.run()
+     reactor.run () 
 
-``addBoth`` メソッドは同じ関数をコールバック・チェーンとエラー用コールバック・チェーンの両方に追加します。こうして非同期コードをリファクタリングできましたね。
+``addBoth`` 메소드는 같은 함수를 콜백 체인 및 오류에 대한 콜백 체인에 모두 추가합니다. 이렇게 비동기 코드를 리팩토링 수 있었어요. 
 
-    **ノート：** この遅延オブジェクトがエラー用コールバック・チェーンを実行してしまうことがあります。
-    これについては先々のパートで議論しますが、とりあえず、遅延オブジェクトに関して学ぶべきことはたくさんある、と肝に命じておいてください。
+     ** 주 **이 지연 개체 오류에 대한 콜백 체인을 실행하는 경우가 있습니다. 
+     이것에 대해서는 곳마다 파트에서 논의되지만 우선, 지연 개체에 대해 배울 게 많이 있다고 간에게 분부하십시오. 
 
-まとめ
-------
-このパートでは、コールバックを使ったプログラミングを深堀りし、いくつかの潜在的な問題点を認識しました。また、 ``Deferred`` クラスがどれほど私たちを助けてくれるかも見てきました。
+정리 
+------ 
+이 파트에서는 콜백을 사용한 프로그래밍을 깊이 파기하고 몇 가지 잠재적 인 문제점을 인식했습니다. 또한``Deferred`` 클래스가 얼마나 우리를 도와 줄지도보고 왔습니다. 
 
-#. エラー用コールバックは無視できません。全ての非同期な API で必須です。遅延オブジェクトにはこれへのサポートが組み込まれています。
-#. コールバックを複数回呼び出すと、難解でデバッグが難しい問題を引き起こしやすくなります。
-#. 単純なコールバックを用いたプログラミングはリファクタリングをトリッキーにしてしまいます。遅延オブジェクトを使うと、コールバック・チェーンにリンクを追加し、あるリンクを他の場所に移動させることでリファクタリングできます。
+# 오류에 대한 콜백은 무시할 수 없습니다. 모든 비동기 API에서 필수입니다. 지연 개체는 이것에 대한 지원이 포함되어 있습니다. 
+# 콜백을 여러 번 호출하면 난해하고 디버깅이 어려운 문제가 발생하기 쉽습니다. 
+# 단순 콜백을 이용한 프로그래밍 리팩토링 까다로운 해 버립니다. 지연 개체를 사용하여 콜백 체인에 링크를 추가하고 링크를 다른 위치로 이동시키는 것으로 리팩토링 수 있습니다. 
 
-遅延オブジェクトにまつわる話題は尽きません。探求すべき原理と振る舞いはまだまだあります。しかし、詩のクライアントで使い始めるには十分といえるでしょう。":doc:`p08`"でやってみましょう。
+지연 개체 관련된 화제는 포함되지 않습니다. 탐구해야 할 원칙과 행동은 아직도 있습니다. 그러나시 클라이언트에서 시작하려면 충분하다고 할 수 있습니다. ": doc :`p08`"으로하고 봅시다. 
 
-おすすめの練習問題
-------------------
-#. 最後の例では ``poem_done`` への引数を無視しています。出力させてみてください。 ``get_poem`` が値を返すようにすると、このことが ``poem_done`` への引数をどのように変えるかを考えてみてください。
-#. 最後のふたつの遅延オブジェクトを使った例を、エラー用コールバック・チェーンを実行するように修正してください。 ``Exception`` を引数としてエラー用コールバックを動かすようにしてくださいね。
-#. ``Deferred`` クラスの `addCallback <http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/defer.py#L189>`_ と `addErrback <http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/defer.py#L192>`_ メソッドの docstring を読んでください。
+추천 연습 문제 
+------------------ 
+# 마지막 예에서는``poem_done``에 인수를 무시합니다. 출력시켜보십시오. ``get_poem``가 값을 반환하면이 수``poem_done``의 인수를 어떻게 바꿀 것인가를 생각해보십시오. 
+# 마지막 두 지연 객체를 사용한 예는 오류 용 콜백 체인을 실행하도록 수정하십시오. ``Exception``를 인수로 오류에 대한 콜백을 움직이게 해주세요. 
+#``Deferred`` 클래스의`addCallback <http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/defer.py#L189>`_와`addErrback < http://twistedmatrix.com/trac/browser/tags/releases/twisted-8.2.0/twisted/internet/defer.py#L192>`_ 메소드의 docstring을 읽어보십시오.
 
 ..
     <H2>Part 7: An Interlude,&nbsp; Deferred
